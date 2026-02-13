@@ -1,14 +1,59 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/u, '');
+
+type LoginPayload = {
+  token?: string;
+  user?: Record<string, unknown>;
+  error?: string;
+};
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate('/dashboard');
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, remember }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as LoginPayload;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'ログインに失敗しました。');
+      }
+
+      if (!payload?.token) {
+        throw new Error('ログイントークンを受信できませんでした。');
+      }
+
+      localStorage.setItem('nekocafe_token', payload.token);
+      if (payload.user) {
+        localStorage.setItem('nekocafe_user', JSON.stringify(payload.user));
+      } else {
+        localStorage.removeItem('nekocafe_user');
+      }
+
+      navigate('/dashboard');
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : 'ログインに失敗しました。');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -58,7 +103,12 @@ export default function Login() {
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(event) => setRemember(event.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
                 <span className="ml-2 text-gray-600">ログイン状態を保持</span>
               </label>
               <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium whitespace-nowrap">
@@ -66,11 +116,22 @@ export default function Login() {
               </a>
             </div>
 
+            {error && (
+              <p role="alert" className="text-center text-sm text-red-600">
+                {error}
+              </p>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-lg font-medium hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
+              disabled={isSubmitting}
+              className={`w-full text-white py-3 rounded-lg font-medium transition-all shadow-lg whitespace-nowrap ${
+                isSubmitting
+                  ? 'bg-emerald-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl'
+              }`}
             >
-              ログイン
+              {isSubmitting ? 'ログイン中…' : 'ログイン'}
             </button>
           </form>
 
