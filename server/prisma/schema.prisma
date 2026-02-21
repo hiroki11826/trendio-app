@@ -22,3 +22,13 @@ model User {
   updatedAt DateTime @updatedAt
   lastLogin DateTime?
 }
+
+model MetaConnection {
+  id          Int      @id @default(autoincrement())
+  accessToken String   @db.Text
+  expiresAt   DateTime
+  pageId      String?
+  igUserId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

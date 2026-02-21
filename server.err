@@ -1,0 +1,82 @@
+(node:9408) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:9408) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Server error SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Git2\server\node_modules\body-parser\lib\types\json.js:72:19)
+    at C:\Git2\server\node_modules\body-parser\lib\read.js:162:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+    at invokeCallback (C:\Git2\server\node_modules\raw-body\index.js:238:16)
+    at done (C:\Git2\server\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Git2\server\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:508:28)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  expose: true,
+  statusCode: 400,
+  status: 400,
+  body: '{\\',
+  type: 'entity.parse.failed'
+}
+Server error SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Git2\server\node_modules\body-parser\lib\types\json.js:72:19)
+    at C:\Git2\server\node_modules\body-parser\lib\read.js:162:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+    at invokeCallback (C:\Git2\server\node_modules\raw-body\index.js:238:16)
+    at done (C:\Git2\server\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Git2\server\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:508:28)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  expose: true,
+  statusCode: 400,
+  status: 400,
+  body: '{name:Test User,email:testuser@example.com,password:Test1234!}',
+  type: 'entity.parse.failed'
+}
+Server error SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Git2\server\node_modules\body-parser\lib\types\json.js:72:19)
+    at C:\Git2\server\node_modules\body-parser\lib\read.js:162:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+    at invokeCallback (C:\Git2\server\node_modules\raw-body\index.js:238:16)
+    at done (C:\Git2\server\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Git2\server\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:508:28)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  expose: true,
+  statusCode: 400,
+  status: 400,
+  body: '{\\ name\\:\\Test User\\,\\email\\:\\testuser@example.com\\,\\password\\:\\Test1234!\\}\r\n',
+  type: 'entity.parse.failed'
+}
+Server error AggregateError [ECONNREFUSED]: 
+    at C:\Git2\server\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///C:/Git2/server/src/server.ts:86:26 {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432
+    }
+  ]
+}

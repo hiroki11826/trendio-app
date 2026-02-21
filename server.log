@@ -1,0 +1,5 @@
+
+> server@1.0.0 dev
+> cross-env TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm src/server.ts
+
+Server listening on http://localhost:3001

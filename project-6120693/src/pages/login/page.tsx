@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/u, '');
 
@@ -138,9 +138,9 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               アカウントをお持ちでないですか？{' '}
-              <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium whitespace-nowrap">
-                営業担当にお問い合わせ
-              </a>
+              <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-medium whitespace-nowrap">
+                新規登録はこちら
+              </Link>
             </p>
           </div>
         </div>

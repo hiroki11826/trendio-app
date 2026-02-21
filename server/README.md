@@ -25,6 +25,11 @@
 | `JWT_SECRET` | Secret used to sign session tokens (must be strong) | `change-me-to-a-long-random-secret` |
 | `JWT_EXPIRES_IN` | Default token lifetime when `remember` is `false` | `2h` |
 | `JWT_REMEMBER_EXPIRES_IN` | Token lifetime when the user asks to be remembered | `30d` |
+| `META_APP_ID` | Meta App ID that backs the config-based login | `695158557015973` |
+| `META_APP_SECRET` | Meta app secret used only on the server | _keep secret / load from `.env.local`_ |
+| `META_REDIRECT_URI` | Redirect URI registered in the Meta app | `http://localhost:3000/auth/meta/callback` |
+| `META_CONFIG_ID` | config_id that scopes the Meta Business Login flow | `824461726720947` |
+| `META_GRAPH_API_VERSION` | Optional override for the Graph/OAuth API version | `v21.0` |
 
 The `.env` file in this repository already contains sensible defaults for local dev; make sure to update `JWT_SECRET` before deploying.
 
@@ -77,3 +82,29 @@ The `.env` file in this repository already contains sensible defaults for local 
 ## Seeded demo accounts
 
 `npm run seed` upserts all three allowed users (owner 営業A 運用B) with bcrypt-hashed passwords, so the UI can only authenticate with those credentials. Re-running the script lets you reset the hashes if you ever need to rotate them.
+
+## Meta Business Login helper
+
+This server now contains a minimal Prisma-backed flow for the Meta config_id login.
+
+### Prisma model
+
+- `MetaConnection`
+  - `id` (Int, PK)
+  - `accessToken` (Text) – stored as returned from the `/oauth/access_token` response.
+  - `expiresAt` (DateTime) – computed from `expires_in`; saves when the token no longer works.
+  - `pageId` (String?) – populated from `/me/accounts`.
+  - `igUserId` (String?) – the nested `instagram_business_account.id` if available.
+  - `createdAt / updatedAt` – Prisma-managed timestamps.
+
+After editing `prisma/schema.prisma`, run `npx prisma migrate dev --name add_meta_connection` (requires `DATABASE_URL`) and `npx prisma generate` before starting the server.
+
+### Endpoints
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/meta/login` | Redirects the browser to `https://www.facebook.com/{version}/dialog/oauth` using `config_id`, `client_id`, and `redirect_uri`. |
+| `GET /auth/meta/callback` | Exchanges the one-time `code` for an access token, saves it in `MetaConnection`, and returns the stored row in JSON. |
+| `GET /api/meta/debug` | Reads the latest `MetaConnection`, calls `/{version}/me/accounts`, updates `pageId`/`igUserId`, and returns the Meta connection + page data. |
+
+Keep `META_APP_SECRET` on the server (`.env`, `.env.local`, or CI secret) and never expose it to the browser. Each `code` is single-use, so always visit `/api/meta/login` first, complete the callback, and then call `/api/meta/debug`.
