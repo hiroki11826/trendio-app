@@ -20,11 +20,6 @@ async function ensureClientJs() {
     logLevel: "silent",
     sourcemap: false,
     write: true,
-    // esbuild emits import_meta placeholders for ESM features; the generated
-    // CommonJS bundle already emits `var import_meta = {};`. Since Node expects
-    // a valid `import.meta.url` for Prisma's __dirname calculation, override
-    // the placeholder with a runtime-safe value after bundling rather than
-    // relying on esbuild to provide one.
   });
 
   const clientCode =

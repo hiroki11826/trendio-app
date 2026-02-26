@@ -26,6 +26,7 @@ model User {
 model MetaConnection {
   id          Int      @id @default(autoincrement())
   accessToken String   @db.Text
+  pageAccessToken String? @db.Text
   expiresAt   DateTime
   pageId      String?
   igUserId    String?

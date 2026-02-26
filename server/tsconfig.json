@@ -20,6 +20,11 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prisma/client": ["node_modules/.prisma/client/client.ts"],
+      "@prisma/client/*": ["node_modules/.prisma/client/*", "node_modules/.prisma/client/*.ts"]
+    },
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,

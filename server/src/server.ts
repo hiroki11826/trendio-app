@@ -5,8 +5,15 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { JwtPayload, Secret, SignOptions } from "jsonwebtoken";
 import { Pool } from "pg";
-import pkg from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  ensureMetaConnectionHasIgUser,
+  getInstagramPageFromUserToken,
+  graphFetch,
+  metaAuthUrl,
+  metaGraphBase,
+} from "./services/metaGraph.js";
 
 const jwtSecretRaw = process.env.JWT_SECRET;
 const databaseUrl = process.env.DATABASE_URL;
@@ -31,9 +38,6 @@ const metaAppId = process.env.META_APP_ID;
 const metaAppSecret = process.env.META_APP_SECRET;
 const metaRedirectUriEnv = process.env.META_REDIRECT_URI?.trim();
 const metaConfigId = process.env.META_CONFIG_ID;
-const metaGraphVersion = process.env.META_GRAPH_API_VERSION ?? "v21.0";
-const metaGraphBase = `https://graph.facebook.com/${metaGraphVersion}`;
-const metaAuthUrl = `https://www.facebook.com/${metaGraphVersion}/dialog/oauth`;
 
 const pool = new Pool({
   connectionString: databaseUrl,
@@ -42,7 +46,7 @@ const pool = new Pool({
 const prismaAdapter = new PrismaPg({
   connectionString: databaseUrl,
 });
-const prisma = new pkg.PrismaClient({
+const prisma = new PrismaClient({
   adapter: prismaAdapter,
 });
 
@@ -97,17 +101,6 @@ type InsightMetric = {
   values?: Array<{ value?: number | Record<string, number>; end_time?: string }>;
 };
 
-type MetaAccountPage = {
-  id?: string;
-  name?: string;
-  instagram_business_account?: {
-    id?: string;
-    username?: string;
-    profile_picture_url?: string;
-    followers_count?: number;
-  };
-};
-
 type MetaMedia = {
   id?: string;
   timestamp?: string;
@@ -116,74 +109,6 @@ type MetaMedia = {
   caption?: string;
   media_type?: string;
   permalink?: string;
-};
-
-const graphFetch = async <T extends Record<string, unknown>>(path: string, params: Record<string, string>) => {
-  const url = new URL(`${metaGraphBase}/${path}`);
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      url.searchParams.set(key, value);
-    }
-  });
-
-  const response = await fetch(url.toString());
-  const payload = (await response.json()) as T & { error?: { message?: string } };
-  if (!response.ok || payload.error) {
-    const message = payload.error?.message ?? `Meta Graph request failed (${response.status})`;
-    throw new Error(message);
-  }
-  return payload;
-};
-
-const fetchMetaAccounts = async (
-  accessToken: string,
-  fields = "id,name,access_token,instagram_business_account",
-) =>
-  graphFetch<{ data?: MetaAccountPage[] }>(`me/accounts`, {
-    access_token: accessToken,
-    fields,
-  });
-
-const getInstagramPageFromUserToken = async (userToken: string) => {
-  const payload = await fetchMetaAccounts(userToken);
-  const accounts = payload.data ?? [];
-  const page = accounts.find(
-    (p) =>
-      typeof p.instagram_business_account === "object" &&
-      p.instagram_business_account !== null,
-  );
-  if (!page) {
-    throw new Error("no_ig_linked_to_pages");
-  }
-  const insta = page.instagram_business_account as Record<string, string>;
-  const pageAccessToken = typeof page.access_token === "string" ? page.access_token : undefined;
-  if (!pageAccessToken) {
-    throw new Error("missing_page_access_token");
-  }
-  return {
-    pageId: page.id,
-    igUserId: insta.id,
-    pageAccessToken,
-  };
-};
-
-const ensureMetaConnectionHasIgUser = async (connection: pkg.MetaConnection, page?: MetaAccountPage) => {
-  if (connection.pageId && connection.igUserId) {
-    return connection;
-  }
-
-  const resolvedPage = page ?? (await fetchMetaAccounts(connection.accessToken)).data?.[0];
-  const pageId = typeof resolvedPage?.id === "string" ? resolvedPage.id : connection.pageId;
-  const igUserId = resolvedPage?.instagram_business_account?.id ?? connection.igUserId;
-
-  if ((pageId && pageId !== connection.pageId) || (igUserId && igUserId !== connection.igUserId)) {
-    return await prisma.metaConnection.update({
-      where: { id: connection.id },
-      data: { pageId: pageId ?? connection.pageId, igUserId: igUserId ?? connection.igUserId },
-    });
-  }
-
-  return connection;
 };
 
 const fetchInsights = async (
@@ -267,7 +192,7 @@ const buildWebsiteClicksMap = (metricData: InsightMetric[] | undefined) => {
     if (!entry.end_time) {
       return;
     }
-    const key = entry.end_time.split("T")[0];
+    const key = entry.end_time.split("T")[0] as string;
     const value = typeof entry.value === "number" ? entry.value : 0;
     map[key] = value;
   });
@@ -485,7 +410,7 @@ app.post("/auth/register", async (req: Request, res: Response, next: NextFunctio
       WHERE email = $1;
     `, [email]);
 
-    if (existing.rowCount > 0) {
+    if ((existing.rowCount ?? 0) > 0) {
       res.status(409).json({ error: "An account with that email already exists." });
       return;
     }
@@ -500,6 +425,10 @@ app.post("/auth/register", async (req: Request, res: Response, next: NextFunctio
     `, [email, hashedPassword, trimmedName || null]);
 
     const user = result.rows[0];
+    if (!user) {
+      res.status(500).json({ error: "Failed to create user." });
+      return;
+    }
     const token = createToken({ userId: user.id, email: user.email });
 
     res.status(201).json({
@@ -694,17 +623,40 @@ app.get("/auth/meta/callback", async (req: Request, res: Response, next: NextFun
       ? new Date(Date.now() + Math.round(expiresIn) * 1000)
       : new Date();
 
-    const pageLink = await getInstagramPageFromUserToken(accessToken);
+    const preferredPageId = (() => {
+      const direct = typeof req.query.preferredPageId === "string" ? req.query.preferredPageId.trim() : "";
+      if (direct) {
+        return direct;
+      }
+      const missingPageId = typeof req.query.pageId === "string" ? req.query.pageId.trim() : "";
+      if (missingPageId) {
+        return missingPageId;
+      }
+      const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+      if (!state) {
+        return undefined;
+      }
+      try {
+        const parsed = JSON.parse(state) as Record<string, unknown>;
+        const value = typeof parsed.preferredPageId === "string" ? parsed.preferredPageId.trim() : "";
+        return value || undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+
+    const pageLink = await getInstagramPageFromUserToken(accessToken, preferredPageId);
 
     const latestConnection = await prisma.metaConnection.findFirst({
       orderBy: { createdAt: "desc" },
     });
 
     const dataToSave = {
-      accessToken: pageLink.pageAccessToken,
+      accessToken,
+      pageAccessToken: pageLink.pageAccessToken,
       expiresAt,
-      pageId: pageLink.pageId ?? undefined,
-      igUserId: pageLink.igUserId ?? undefined,
+      pageId: pageLink.pageId ?? null,
+      igUserId: pageLink.igUserId ?? null,
     };
 
     const connection = latestConnection
@@ -715,6 +667,8 @@ app.get("/auth/meta/callback", async (req: Request, res: Response, next: NextFun
       : await prisma.metaConnection.create({
           data: dataToSave,
         });
+
+    await ensureMetaConnectionHasIgUser(prisma, connection, pageLink);
 
     res.redirect("https://localhost:3000/settings?connected=1");
   } catch (error) {
@@ -733,49 +687,16 @@ app.get("/api/meta/debug", async (_req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const { data: accounts = [] } = await fetchMetaAccounts(
-      connection.accessToken,
-      "id,name,instagram_business_account",
-    );
-    if (accounts.length === 0) {
-      res.status(404).json({
-        error: "Meta returned zero Pages -- make sure the config_id grants access.",
-      });
-      return;
-    }
-
-    const page = accounts[0];
-    const pageId = typeof page.id === "string" ? page.id : null;
-    const instagramAccount =
-      typeof page.instagram_business_account === "object" && page.instagram_business_account !== null
-        ? page.instagram_business_account as Record<string, unknown>
-        : undefined;
-
-    if (!instagramAccount || typeof instagramAccount.id !== "string") {
-      res.status(422).json({
-        error: "no_ig_linked_to_pages",
-        details: accounts,
-      });
-      return;
-    }
-
-    const updatedConnection = await ensureMetaConnectionHasIgUser(connection, page);
-
     const metaConnectionSafe = {
-      id: updatedConnection.id,
-      pageId: updatedConnection.pageId,
-      igUserId: updatedConnection.igUserId,
-      expiresAt: updatedConnection.expiresAt?.toISOString?.() ?? null,
+      id: connection.id,
+      pageId: connection.pageId ?? null,
+      igUserId: connection.igUserId ?? null,
+      expiresAt: connection.expiresAt?.toISOString?.() ?? null,
+      hasPageAccessToken: Boolean(connection.pageAccessToken),
     };
 
     res.json({
       metaConnection: metaConnectionSafe,
-      page: {
-        id: pageId,
-        instagram_business_account: instagramAccount,
-        name: typeof page.name === "string" ? page.name : undefined,
-      },
-      accounts,
     });
   } catch (error) {
     next(error);
@@ -803,7 +724,6 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
 
     if (connection) {
       console.log("dashboard/instagram: MetaConnection", {
-        userId: connection.userId ?? null,
         pageId: connection.pageId,
         igUserId: connection.igUserId,
         expiresAt: connection.expiresAt?.toISOString?.() ?? null,
@@ -815,33 +735,18 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       return;
     }
 
+    if (!connection.pageAccessToken) {
+      res.status(422).json({ error: "page_token_missing" });
+      return;
+    }
+
     if (!connection.igUserId) {
-      res.status(422).json({ error: "ig_user_not_linked" });
-      return;
-    }
-
-    if (!connection) {
-      res.status(404).json({ error: "No Meta connection record found yet." });
-      return;
-    }
-
-    const { data: accounts = [] } = await fetchMetaAccounts(connection.accessToken);
-    if (accounts.length === 0) {
-      res.status(404).json({
-        error: "Meta returned zero Pages -- make sure the config_id grants access.",
-      });
-      return;
-    }
-
-    const page = accounts[0];
-    const updatedConnection = await ensureMetaConnectionHasIgUser(connection, page);
-
-    if (!updatedConnection.igUserId) {
       res.status(404).json({ error: "Instagram business account is not yet linked." });
       return;
     }
 
-    const igUserId = updatedConnection.igUserId;
+    const igUserId = connection.igUserId;
+    const pageToken = connection.pageAccessToken;
     const nowSeconds = Math.floor(Date.now() / 1000);
     const sinceSeconds = nowSeconds - 14 * 86400;
 
@@ -854,30 +759,30 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       genderAge,
       cities,
     ] = await Promise.all([
-      fetchInsights(updatedConnection.accessToken, igUserId, "audience_follower_count", {
+      fetchInsights(pageToken, igUserId, "audience_follower_count", {
         since: sinceSeconds,
         until: nowSeconds,
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "impressions", {
+      fetchInsights(pageToken, igUserId, "impressions", {
         since: sinceSeconds,
         until: nowSeconds,
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "reach", {
+      fetchInsights(pageToken, igUserId, "reach", {
         since: sinceSeconds,
         until: nowSeconds,
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "profile_views", {
+      fetchInsights(pageToken, igUserId, "profile_views", {
         since: sinceSeconds,
         until: nowSeconds,
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "website_clicks", {
+      fetchInsights(pageToken, igUserId, "website_clicks", {
         since: sinceSeconds,
         until: nowSeconds,
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "audience_gender_age", {
+      fetchInsights(pageToken, igUserId, "audience_gender_age", {
         period: "lifetime",
       }),
-      fetchInsights(updatedConnection.accessToken, igUserId, "audience_city", {
+      fetchInsights(pageToken, igUserId, "audience_city", {
         period: "lifetime",
       }),
     ]);
@@ -891,14 +796,14 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       followers_count?: number;
       media_count?: number;
     }>(`${igUserId}`, {
-      access_token: updatedConnection.accessToken,
+      access_token: pageToken,
       fields: "id,name,username,biography,profile_picture_url,followers_count,media_count",
     });
 
-    const recentMedia = await fetchRecentMedia(updatedConnection.accessToken, igUserId, 12);
+    const recentMedia = await fetchRecentMedia(pageToken, igUserId, 12);
     const savedCounts = await Promise.all(
       recentMedia.map((media) =>
-        media.id ? fetchMediaInsightValue(updatedConnection.accessToken, media.id, "saved") : Promise.resolve(0),
+        media.id ? fetchMediaInsightValue(pageToken, media.id, "saved") : Promise.resolve(0),
       ),
     );
 
@@ -913,7 +818,7 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       if (!media.timestamp) {
         return 0;
       }
-      const key = media.timestamp.split("T")[0];
+      const key = media.timestamp.split("T")[0] as string;
       return websiteClicksByDate[key] ?? 0;
     });
 
@@ -930,7 +835,10 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       siteClicks: normalizedSiteClicks.reduce((total, value) => total + value, 0),
     };
 
-    const genderBreakdown = buildGenderBreakdown(genderAge[0]?.values?.[0]?.value);
+    const genderAgeValue = genderAge[0]?.values?.[0]?.value;
+    const genderBreakdown = buildGenderBreakdown(
+      typeof genderAgeValue === "object" && genderAgeValue !== null ? (genderAgeValue as Record<string, number>) : undefined,
+    );
     const genderTotals = genderBreakdown.male + genderBreakdown.female + genderBreakdown.other || 1;
     const genderRatio = {
       male: Math.round((genderBreakdown.male / genderTotals) * 100),
