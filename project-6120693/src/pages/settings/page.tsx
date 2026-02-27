@@ -37,8 +37,7 @@ type MetaDebugResponse = {
   };
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
-const META_LOGIN_URL = `${API_BASE_URL}/api/meta/login`;
+const META_LOGIN_URL = "/auth/meta/login";
 const META_DEBUG_URL = `${API_BASE_URL}/api/meta/debug`;
 const META_DISCONNECT_URL = `${API_BASE_URL}/api/meta/connection`;
 const POLL_INTERVAL_MS = 2000;

@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../node_modules/.prisma/client"
@@ -12,24 +6,25 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
   name      String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  password  String
+  isActive  Boolean   @default(true)
+  updatedAt DateTime  @updatedAt
   lastLogin DateTime?
 }
 
 model MetaConnection {
-  id          Int      @id @default(autoincrement())
-  accessToken String   @db.Text
-  pageAccessToken String? @db.Text
-  expiresAt   DateTime
-  pageId      String?
-  igUserId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  accessToken     String
+  expiresAt       DateTime
+  pageId          String?
+  igUserId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  pageAccessToken String?
 }

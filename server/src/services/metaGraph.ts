@@ -22,6 +22,48 @@ type MetaPageLink = {
   pageAccessToken?: string | undefined;
 };
 
+const normalizeKey = (key: string) => key.replace(/_/g, "").toLowerCase();
+const sensitiveKeys = new Set(["accesstoken", "pageaccesstoken"]);
+const maskGraphValue = (data: unknown): unknown => {
+  if (Array.isArray(data)) {
+    return data.map(maskGraphValue);
+  }
+  if (data && typeof data === "object") {
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (sensitiveKeys.has(normalizeKey(key))) {
+        next[key] = "***masked***";
+        continue;
+      }
+      next[key] = maskGraphValue(value);
+    }
+    return next;
+  }
+  return data;
+};
+
+export class GraphApiError extends Error {
+  public readonly graph: {
+    status: number;
+    body: unknown;
+  };
+  public readonly body: unknown;
+  public readonly endpoint?: string;
+
+  constructor(status: number, body: unknown, endpoint?: string, message?: string) {
+    super(message ?? `Meta Graph request failed (${status})`);
+    this.name = "GraphApiError";
+    Object.setPrototypeOf(this, GraphApiError.prototype);
+    const maskedBody = maskGraphValue(body);
+    this.graph = {
+      status,
+      body: maskedBody,
+    };
+    this.body = maskedBody;
+    this.endpoint = endpoint;
+  }
+}
+
 export const graphFetch = async <T extends Record<string, unknown>>(path: string, params: Record<string, string>) => {
   const url = new URL(`${metaGraphBase}/${path}`);
   Object.entries(params).forEach(([key, value]) => {
@@ -34,7 +76,10 @@ export const graphFetch = async <T extends Record<string, unknown>>(path: string
   const payload = (await response.json()) as T & { error?: { message?: string } };
   if (!response.ok || payload.error) {
     const message = payload.error?.message ?? `Meta Graph request failed (${response.status})`;
-    throw new Error(message);
+    const logSearch = new URLSearchParams(url.searchParams);
+    logSearch.delete("access_token");
+    const endpointForError = `${url.pathname}${logSearch.toString() ? `?${logSearch.toString()}` : ""}`;
+    throw new GraphApiError(response.status, payload, endpointForError, message);
   }
   return payload;
 };

@@ -88,6 +88,10 @@ export default defineConfig({
     },
     allowedHosts: ["buzzinsight.local"],
     proxy: {
+      "/auth/meta/login": {
+        target: backendUrl,
+        changeOrigin: true,
+      },
       "/auth/meta/callback": {
         target: backendUrl,
         changeOrigin: true,

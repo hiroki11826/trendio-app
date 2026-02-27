@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { appendFile } from "node:fs/promises";
+import path from "node:path";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import bcrypt from "bcryptjs";
@@ -11,9 +13,13 @@ import {
   ensureMetaConnectionHasIgUser,
   getInstagramPageFromUserToken,
   graphFetch,
-  metaAuthUrl,
-  metaGraphBase,
+  GraphApiError,
 } from "./services/metaGraph.js";
+import {
+  metaCallback,
+  metaLogin,
+  setMetaPrismaClient,
+} from "../routes/metaAuth.js";
 
 const jwtSecretRaw = process.env.JWT_SECRET;
 const databaseUrl = process.env.DATABASE_URL;
@@ -34,11 +40,6 @@ const accessTokenExpiry: TokenExpiry =
 const rememberTokenExpiry: TokenExpiry =
   (process.env.JWT_REMEMBER_EXPIRES_IN as TokenExpiry) ?? "30d";
 
-const metaAppId = process.env.META_APP_ID;
-const metaAppSecret = process.env.META_APP_SECRET;
-const metaRedirectUriEnv = process.env.META_REDIRECT_URI?.trim();
-const metaConfigId = process.env.META_CONFIG_ID;
-
 const pool = new Pool({
   connectionString: databaseUrl,
 });
@@ -50,50 +51,15 @@ const prisma = new PrismaClient({
   adapter: prismaAdapter,
 });
 
-const resolveMetaRedirectUri = (req: Request): string => {
-  if (metaRedirectUriEnv) {
-    return metaRedirectUriEnv;
-  }
+setMetaPrismaClient(prisma);
 
-  const host = req.get("host");
-  if (!host) {
-    throw new Error(
-      "Unable to determine META_REDIRECT_URI: set META_REDIRECT_URI or ensure the Host header is present in requests.",
-    );
-  }
-
-  return `${req.protocol}://${host}/auth/meta/callback`;
-};
-
-const ensureMetaRedirectConfig = (req: Request, res: Response): boolean => {
-  const missing: string[] = [];
-  if (!metaAppId) missing.push("META_APP_ID");
-  if (!metaConfigId) missing.push("META_CONFIG_ID");
-  if (missing.length > 0) {
-    res.status(500).json({
-      error: `Missing Meta environment variables: ${missing.join(", ")}`,
-    });
-    return false;
-  }
-
-  try {
-    resolveMetaRedirectUri(req);
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-    return false;
-  }
-
-  return true;
-};
-
-const ensureMetaSecret = (res: Response): boolean => {
-  if (!metaAppSecret) {
-    res.status(500).json({
-      error: "META_APP_SECRET is required to exchange Meta codes for tokens.",
-    });
-    return false;
-  }
-  return true;
+const isDevelopment = (process.env.NODE_ENV ?? "development") !== "production";
+const serverLogPath = path.resolve(process.cwd(), "..", "server.log");
+const logErrorToFile = (entry: Record<string, unknown>) => {
+  const line = `[${new Date().toISOString()}] ${JSON.stringify(entry)}\n`;
+  void appendFile(serverLogPath, line).catch((appendError) => {
+    console.error("Failed to append server log entry", appendError);
+  });
 };
 
 type InsightMetric = {
@@ -124,6 +90,12 @@ const fetchInsights = async (
   };
   if (options?.since) params.since = String(options.since);
   if (options?.until) params.until = String(options.until);
+
+  const logParams = new URLSearchParams(params);
+  logParams.delete("access_token");
+  const queryString = logParams.toString();
+  const graphEndpointLog = `/${igUserId}/insights${queryString ? `?${queryString}` : ""}`;
+  console.log("Meta Graph (fetchInsights):", graphEndpointLog);
 
   const result = await graphFetch<{ data?: InsightMetric[] }>(`${igUserId}/insights`, params);
   return result.data ?? [];
@@ -511,171 +483,10 @@ app.get("/auth/me", authMiddleware, async (req: Request, res: Response, next: Ne
   }
 });
 
-app.get("/api/meta/login", (req: Request, res: Response) => {
-  if (!ensureMetaRedirectConfig(req, res)) {
-    return;
-  }
-
-  const redirectUri = resolveMetaRedirectUri(req);
-  const params = new URLSearchParams({
-    client_id: metaAppId!,
-    config_id: metaConfigId!,
-    redirect_uri: redirectUri,
-    response_type: "code",
-  });
-  const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
-  if (state) {
-    params.set("state", state);
-  }
-
-  res.redirect(`${metaAuthUrl}?${params.toString()}`);
-});
-
-const renderCallbackPage = (options: {
-  status: "success" | "error";
-  message: string;
-  payload?: Record<string, unknown>;
-}) => {
-  const safePayload = options.payload ? JSON.stringify(options.payload) : "null";
-  return `<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Instagram接続 ${options.status === "success" ? "完了" : "エラー"}</title>
-    <style>
-      body { font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f6f8fb; color:#222; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-      .card { padding:24px; border-radius:16px; box-shadow:0 12px 48px rgba(15,23,42,.15); background:#fff; text-align:center; max-width:360px; }
-      .status { font-size:32px; margin-bottom:12px; }
-      .message { font-size:16px; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="status">${options.status === "success" ? "✅" : "❌"}</div>
-      <p class="message">${options.message}</p>
-    </div>
-    <script>
-      const message = {
-        type: "META_CONNECTION",
-        status: "${options.status}",
-        message: ${JSON.stringify(options.message)},
-        payload: ${safePayload},
-      };
-      if (window.opener) {
-        window.opener.postMessage(message, window.opener.origin || "*");
-      }
-      setTimeout(() => window.close(), 1200);
-    </script>
-  </body>
-</html>`;
-};
-
-app.get("/auth/meta/callback", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!ensureMetaRedirectConfig(req, res) || !ensureMetaSecret(res)) {
-      return;
-    }
-
-    const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
-    if (!code) {
-      res.status(400).json({ error: "Meta authorization `code` is required." });
-      return;
-    }
-
-    const redirectUri = resolveMetaRedirectUri(req);
-
-    const tokenParams = new URLSearchParams({
-      client_id: metaAppId!,
-      redirect_uri: redirectUri,
-      client_secret: metaAppSecret!,
-      code,
-      grant_type: "authorization_code",
-    });
-
-    const tokenResponse = await fetch(`${metaGraphBase}/oauth/access_token?${tokenParams.toString()}`);
-    const tokenPayload = (await tokenResponse.json()) as Record<string, unknown>;
-    if (!tokenResponse.ok) {
-      res.status(502).json({
-        error: "Failed to exchange Meta code for a token.",
-        details: tokenPayload,
-      });
-      return;
-    }
-
-    const accessToken = typeof tokenPayload.access_token === "string" ? tokenPayload.access_token : undefined;
-    if (!accessToken) {
-      res.status(502).json({
-        error: "Meta response did not include an access_token.",
-        details: tokenPayload,
-      });
-      return;
-    }
-
-    const expiresIn =
-      typeof tokenPayload.expires_in === "number"
-        ? tokenPayload.expires_in
-        : typeof tokenPayload.expires_in === "string"
-        ? Number(tokenPayload.expires_in)
-        : undefined;
-
-    const expiresAt = expiresIn
-      ? new Date(Date.now() + Math.round(expiresIn) * 1000)
-      : new Date();
-
-    const preferredPageId = (() => {
-      const direct = typeof req.query.preferredPageId === "string" ? req.query.preferredPageId.trim() : "";
-      if (direct) {
-        return direct;
-      }
-      const missingPageId = typeof req.query.pageId === "string" ? req.query.pageId.trim() : "";
-      if (missingPageId) {
-        return missingPageId;
-      }
-      const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
-      if (!state) {
-        return undefined;
-      }
-      try {
-        const parsed = JSON.parse(state) as Record<string, unknown>;
-        const value = typeof parsed.preferredPageId === "string" ? parsed.preferredPageId.trim() : "";
-        return value || undefined;
-      } catch {
-        return undefined;
-      }
-    })();
-
-    const pageLink = await getInstagramPageFromUserToken(accessToken, preferredPageId);
-
-    const latestConnection = await prisma.metaConnection.findFirst({
-      orderBy: { createdAt: "desc" },
-    });
-
-    const dataToSave = {
-      accessToken,
-      pageAccessToken: pageLink.pageAccessToken,
-      expiresAt,
-      pageId: pageLink.pageId ?? null,
-      igUserId: pageLink.igUserId ?? null,
-    };
-
-    const connection = latestConnection
-      ? await prisma.metaConnection.update({
-          where: { id: latestConnection.id },
-          data: dataToSave,
-        })
-      : await prisma.metaConnection.create({
-          data: dataToSave,
-        });
-
-    await ensureMetaConnectionHasIgUser(prisma, connection, pageLink);
-
-    res.redirect("https://localhost:3000/settings?connected=1");
-  } catch (error) {
-    next(error);
-  }
-});
-
+app.get("/api/meta/login", metaLogin);
+app.get("/auth/meta/login", metaLogin);
+app.get("/auth/meta/callback", metaCallback);
+
 app.get("/api/meta/debug", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const connection = await prisma.metaConnection.findFirst({
@@ -886,8 +697,52 @@ app.use((_req: Request, res: Response) => {
 });
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  console.error("Server error", error);
-  res.status(500).json({ error: "Unexpected server error." });
+  if (res.headersSent) {
+    console.error("Server error after headers sent", error);
+    return;
+  }
+
+  const finalStatus = res.statusCode >= 400 ? res.statusCode : 500;
+  const message = error instanceof Error ? error.message : "Unexpected server error.";
+  const graphInfo = error instanceof GraphApiError ? error.graph : undefined;
+
+  const responsePayload: Record<string, unknown> = {
+    error: "server_error",
+    status: finalStatus,
+    message,
+  };
+
+  if (graphInfo) {
+    responsePayload.graph = graphInfo;
+    responsePayload.body = graphInfo.body;
+  }
+  if (error instanceof GraphApiError && error.endpoint) {
+    responsePayload.endpoint = error.endpoint;
+  }
+  if (isDevelopment && error instanceof Error && error.stack) {
+    responsePayload.stack = error.stack;
+  }
+
+  const logEntry: Record<string, unknown> = {
+    error: "server_error",
+    status: finalStatus,
+    message,
+  };
+  if (graphInfo) {
+    logEntry.graph = graphInfo;
+    logEntry.body = graphInfo.body;
+  }
+  if (error instanceof GraphApiError && error.endpoint) {
+    logEntry.endpoint = error.endpoint;
+  }
+  if (isDevelopment && error instanceof Error && error.stack) {
+    logEntry.stack = error.stack;
+  }
+
+  console.error("Server error", logEntry);
+  logErrorToFile(logEntry);
+
+  res.status(finalStatus).json(responsePayload);
 });
 
 const PORT = Number(process.env.PORT) || 4000;
