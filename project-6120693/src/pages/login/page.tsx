@@ -14,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +24,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,6 +117,23 @@ export default function Login() {
               </a>
             </div>
 
+            <div className="text-sm">
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(event) => setAgreeTerms(event.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer mt-0.5"
+                />
+                <span className="ml-2 text-gray-600">
+                  <Link to="/terms" className="text-emerald-600 hover:underline">利用規約</Link>
+                  と
+                  <Link to="/privacy" className="text-emerald-600 hover:underline">プライバシーポリシー</Link>
+                  に同意する
+                </span>
+              </label>
+            </div>
+
             {error && (
               <p role="alert" className="text-center text-sm text-red-600">
                 {error}
@@ -124,9 +142,9 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !agreeTerms}
               className={`w-full text-white py-3 rounded-lg font-medium transition-all shadow-lg whitespace-nowrap ${
-                isSubmitting
+                isSubmitting || !agreeTerms
                   ? 'bg-emerald-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl'
               }`}
@@ -147,11 +165,11 @@ export default function Login() {
 
         <div className="mt-8 text-center">
           <div className="flex items-center justify-center space-x-6 text-xs text-gray-500">
-            <a href="#" className="hover:text-gray-700 whitespace-nowrap">プライバシーポリシー</a>
+            <Link to="/privacy" className="hover:text-gray-700 whitespace-nowrap">プライバシーポリシー</Link>
             <span>•</span>
-            <a href="#" className="hover:text-gray-700 whitespace-nowrap">利用規約</a>
+            <Link to="/terms" className="hover:text-gray-700 whitespace-nowrap">利用規約</Link>
             <span>•</span>
-            <a href="#" className="hover:text-gray-700 whitespace-nowrap">サポート</a>
+            <a href="mailto:support@snsinsight.jp" className="hover:text-gray-700 whitespace-nowrap">サポート</a>
           </div>
         </div>
       </div>

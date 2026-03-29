@@ -94,7 +94,40 @@ const fetchMetaAccounts = async (
   });
 
 export const getInstagramPageFromUserToken = async (userToken: string, preferredPageId?: string) => {
+  // デバッグ: ユーザー情報を取得
+  const logDebug = (msg: string) => {
+    console.log(msg);
+  };
+  
+  logDebug('=== Debug: Fetching user info ===');
+  try {
+    const userInfo = await graphFetch<{ id?: string; name?: string }>('me', {
+      access_token: userToken,
+      fields: 'id,name'
+    });
+    logDebug('User info: ' + JSON.stringify(userInfo));
+  } catch (error) {
+    logDebug('Failed to fetch user info: ' + String(error));
+  }
+  
+  // デバッグ: アカウント一覧を取得
+  logDebug('=== Debug: Fetching accounts ===');
   const { data: accounts = [] } = await fetchMetaAccounts(userToken);
+  
+  logDebug('=== Meta API Response ===');
+  logDebug('Total pages found: ' + accounts.length);
+  logDebug('Raw accounts data: ' + JSON.stringify(accounts, null, 2));
+  accounts.forEach((account, index) => {
+    logDebug(`Page ${index + 1}: ` + JSON.stringify({
+      id: account.id,
+      name: account.name,
+      has_instagram: !!account.instagram_business_account,
+      instagram_id: account.instagram_business_account?.id
+    }));
+  });
+  logDebug('========================');
+  
+  // まず /me/accounts から探す
   let page: MetaAccountPage | undefined;
   if (preferredPageId) {
     page = accounts.find(
@@ -112,18 +145,62 @@ export const getInstagramPageFromUserToken = async (userToken: string, preferred
         current.instagram_business_account !== null,
     );
   }
-  if (!page) {
-    throw new Error("no_ig_linked_to_pages");
+  
+  // /me/accounts で見つかった場合
+  if (page) {
+    if (typeof page.access_token !== "string") {
+      throw new Error("missing_page_access_token");
+    }
+    const instagramBusinessAccount = page.instagram_business_account as Record<string, unknown>;
+    logDebug('✅ Found page via /me/accounts');
+    return {
+      pageId: typeof page.id === "string" ? page.id : undefined,
+      igUserId: typeof instagramBusinessAccount.id === "string" ? instagramBusinessAccount.id : undefined,
+      pageAccessToken: page.access_token,
+    };
   }
-  if (typeof page.access_token !== "string") {
-    throw new Error("missing_page_access_token");
+  
+  // フォールバック: preferredPageId で直接取得を試みる
+  if (preferredPageId) {
+    logDebug(`⚠️ /me/accounts returned no pages, trying fallback with pageId: ${preferredPageId}`);
+    try {
+      const pageData = await graphFetch<{
+        id?: string;
+        access_token?: string;
+        instagram_business_account?: {
+          id?: string;
+          username?: string;
+        };
+      }>(`${preferredPageId}`, {
+        access_token: userToken,
+        fields: 'id,access_token,instagram_business_account{id,username}',
+      });
+      
+      if (pageData.instagram_business_account?.id) {
+        logDebug('✅ Found page via fallback: ' + JSON.stringify({
+          pageId: pageData.id,
+          igUserId: pageData.instagram_business_account.id,
+          igUsername: pageData.instagram_business_account.username,
+        }));
+        
+        if (!pageData.access_token) {
+          throw new Error("missing_page_access_token_in_fallback");
+        }
+        
+        return {
+          pageId: pageData.id,
+          igUserId: pageData.instagram_business_account.id,
+          pageAccessToken: pageData.access_token,
+        };
+      }
+    } catch (error) {
+      logDebug('❌ Fallback failed: ' + String(error));
+    }
   }
-  const instagramBusinessAccount = page.instagram_business_account as Record<string, unknown>;
-  return {
-    pageId: typeof page.id === "string" ? page.id : undefined,
-    igUserId: typeof instagramBusinessAccount.id === "string" ? instagramBusinessAccount.id : undefined,
-    pageAccessToken: page.access_token,
-  };
+  
+  // どちらも失敗した場合
+  logDebug('❌ No pages found, throwing error');
+  throw new Error("no_pages_returned_from_me_accounts");
 };
 
 const normalizePageFields = (

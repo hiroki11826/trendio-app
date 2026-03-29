@@ -41,14 +41,22 @@ export default function ActionTrendChart({ data, summary }: ActionTrendChartProp
     );
   };
 
-  const allValues = activeMetrics.flatMap(key => data[key]);
+  // データが空の場合のガード
+  const hasData = data.labels && data.labels.length > 0;
+
+  const allValues = activeMetrics.flatMap(key => data[key] || []);
   const maxVal = allValues.length > 0 ? Math.max(...allValues) * 1.15 : 100;
 
-  const getPoints = (values: number[]) =>
-    values.map((val, i) => ({
+  const getPoints = (values: number[]) => {
+    if (!values || values.length === 0) return [];
+    if (values.length === 1) {
+      return [{ x: 410, y: 125 }];
+    }
+    return values.map((val, i) => ({
       x: 60 + (i / (values.length - 1)) * 700,
       y: 250 - (val / maxVal) * 210,
     }));
+  };
 
   const toPath = (points: { x: number; y: number }[]) =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -121,8 +129,8 @@ export default function ActionTrendChart({ data, summary }: ActionTrendChartProp
           })}
 
           {/* X labels */}
-          {data.labels.map((label, i) => {
-            const x = 60 + (i / (data.labels.length - 1)) * 700;
+          {hasData && data.labels.map((label, i) => {
+            const x = data.labels.length === 1 ? 410 : 60 + (i / (data.labels.length - 1)) * 700;
             return (
               <text key={i} x={x} y={275} textAnchor="middle" className="text-[10px]" fill="#d1d5db">
                 {label}

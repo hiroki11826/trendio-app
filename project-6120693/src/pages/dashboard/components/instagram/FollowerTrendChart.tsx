@@ -7,13 +7,46 @@ interface FollowerTrendChartProps {
 }
 
 export default function FollowerTrendChart({ data }: FollowerTrendChartProps) {
-  const min = Math.min(...data.values) * 0.95;
-  const max = Math.max(...data.values) * 1.02;
-  const range = max - min;
+  // データが空の場合は何も表示しない
+  if (!data.values || data.values.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">フォロワー推移</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">過去12週間</p>
+          </div>
+        </div>
+        <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm">
+          データがありません
+        </div>
+      </div>
+    );
+  }
+
+  // Y軸の範囲をきりの良い数字に調整
+  const rawMin = Math.min(...data.values);
+  const rawMax = Math.max(...data.values);
+  const rawRange = rawMax - rawMin || 1;
+  
+  // きりの良い間隔を計算
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawRange)));
+  const normalizedRange = rawRange / magnitude;
+  let tickInterval: number;
+  if (normalizedRange <= 1) tickInterval = 0.2 * magnitude;
+  else if (normalizedRange <= 2) tickInterval = 0.5 * magnitude;
+  else if (normalizedRange <= 5) tickInterval = 1 * magnitude;
+  else tickInterval = 2 * magnitude;
+  
+  // 最小値・最大値をきりの良い数字に調整
+  const min = Math.floor(rawMin / tickInterval) * tickInterval;
+  const max = Math.ceil(rawMax / tickInterval) * tickInterval;
+  const range = max - min || 1;
 
   const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
+    return Math.round(num).toString();
   };
 
   const growth = data.values[data.values.length - 1] - data.values[0];
@@ -27,7 +60,9 @@ export default function FollowerTrendChart({ data }: FollowerTrendChartProps) {
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
   const areaPath = `${linePath} L ${points[points.length - 1].x} 260 L ${points[0].x} 260 Z`;
 
-  const yTicks = Array.from({ length: 5 }, (_, i) => min + (range / 4) * i);
+  // Y軸の目盛りを適切な間隔で計算
+  const tickCount = Math.round(range / tickInterval) + 1;
+  const yTicks = Array.from({ length: Math.min(tickCount, 6) }, (_, i) => min + tickInterval * i);
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-6">

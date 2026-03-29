@@ -56,12 +56,12 @@ export const instagramDetailData = {
     siteClicks: 8720
   },
   // フォロワー男女比（期間別）
-  genderByPeriod: {
-    labels: ['9月', '10月', '11月', '12月'],
-    male: [38, 37, 36, 35],
-    female: [58, 59, 60, 61],
-    other: [4, 4, 4, 4]
-  },
+  genderByPeriod: [
+    { label: '9月', male: 38, female: 58, other: 4 },
+    { label: '10月', male: 37, female: 59, other: 4 },
+    { label: '11月', male: 36, female: 60, other: 4 },
+    { label: '12月', male: 35, female: 61, other: 4 }
+  ],
   // フォロワー男女比（現在）
   genderRatio: {
     male: 35,

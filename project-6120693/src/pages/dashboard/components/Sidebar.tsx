@@ -1,20 +1,48 @@
 
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/u, '');
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('nekocafe_token');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCompanyName(data.user?.companyName || null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile', err);
+      }
+    };
+
+    fetchProfile();
+  }, [location.pathname]);
 
   const menuItems = [
     { path: '/dashboard', icon: 'ri-dashboard-line', label: 'ダッシュボード' },
     { path: '/comments', icon: 'ri-chat-3-line', label: 'コメント管理' },
     { path: '/trends', icon: 'ri-fire-line', label: 'トレンド発見' },
     { path: '/ai-content', icon: 'ri-magic-line', label: 'AI コンテンツ' },
-    { path: '/settings', icon: 'ri-link', label: 'SNS連携' },
+    { path: '/settings', icon: 'ri-settings-3-line', label: 'アカウント管理' },
   ];
 
   const handleLogout = () => {
-    navigate('/');
+    localStorage.removeItem('nekocafe_token');
+    localStorage.removeItem('nekocafe_user');
+    navigate('/login');
   };
 
   return (
@@ -25,6 +53,9 @@ export default function Sidebar() {
           alt="SNS運用プラットフォーム" 
           className="h-9"
         />
+        {companyName && (
+          <p className="mt-2 text-xs text-gray-500 truncate">{companyName}</p>
+        )}
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 mt-2">

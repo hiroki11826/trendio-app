@@ -8,18 +8,24 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now())
-  password  String
-  isActive  Boolean   @default(true)
-  updatedAt DateTime  @updatedAt
-  lastLogin DateTime?
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
+  name               String?
+  companyName        String?
+  createdAt          DateTime             @default(now())
+  password           String
+  isActive           Boolean              @default(true)
+  updatedAt          DateTime             @updatedAt
+  lastLogin          DateTime?
+  tiktokConnections  TikTokConnection[]
+  metaConnections    MetaConnection[]
+  contentIdeas       ContentIdea[]
 }
 
 model MetaConnection {
   id              Int      @id @default(autoincrement())
+  userId          Int?
+  user            User?    @relation(fields: [userId], references: [id])
   accessToken     String
   expiresAt       DateTime
   pageId          String?
@@ -27,4 +33,55 @@ model MetaConnection {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   pageAccessToken String?
+}
+
+model TikTokConnection {
+  id           Int       @id @default(autoincrement())
+  userId       Int?
+  user         User?     @relation(fields: [userId], references: [id])
+  accessToken  String
+  refreshToken String?
+  openId       String    @unique
+  expiresAt    DateTime?
+  scope        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model ContentIdea {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  concept     String
+  format      String
+  hook        String
+  structure   String[]
+  caption     String
+  hashtags    String
+  industry    String
+  goal        String
+  freeInput   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  scripts     ContentScript[]
+}
+
+model ContentScript {
+  id                     Int          @id @default(autoincrement())
+  contentIdeaId          Int
+  contentIdea            ContentIdea  @relation(fields: [contentIdeaId], references: [id], onDelete: Cascade)
+  videoTitle             String
+  objective              String
+  timeline               Json
+  fullScript             String
+  shootingInstructions   Json
+  telops                 String[]
+  captionText            String
+  hashtags               String
+  thumbnailIdea          String
+  estimatedDuration      String
+  whyItWorks             String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 }

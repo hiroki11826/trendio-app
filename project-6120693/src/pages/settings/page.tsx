@@ -3,6 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../dashboard/components/Sidebar';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/u, '');
+
 interface SocialAccount {
   id: string;
   platform: 'instagram' | 'tiktok';
@@ -13,6 +15,20 @@ interface SocialAccount {
   followers?: number;
   pageId?: string;
   igUserId?: string;
+}
+
+interface DataSummary {
+  user: {
+    email: string;
+    name: string | null;
+    createdAt: string;
+  };
+  dataCounts: {
+    metaConnections: number;
+    tiktokConnections: number;
+    contentIdeas: number;
+    contentScripts: number;
+  };
 }
 
 type MetaDebugResponse = {
@@ -37,9 +53,12 @@ type MetaDebugResponse = {
   };
 };
 
-const META_LOGIN_URL = "/auth/meta/login";
+const META_LOGIN_URL = `${API_BASE_URL}/api/auth/meta/login`;
 const META_DEBUG_URL = `${API_BASE_URL}/api/meta/debug`;
 const META_DISCONNECT_URL = `${API_BASE_URL}/api/meta/connection`;
+const TIKTOK_LOGIN_URL = `${API_BASE_URL}/api/auth/tiktok/login`;
+const TIKTOK_CONNECTION_URL = `${API_BASE_URL}/api/tiktok/connection`;
+const TIKTOK_DISCONNECT_URL = `${API_BASE_URL}/api/tiktok/connection`;
 const POLL_INTERVAL_MS = 2000;
 
 export default function Settings() {
@@ -73,6 +92,25 @@ export default function Settings() {
   useEffect(() => {
     connectingPlatformRef.current = connectingPlatform;
   }, [connectingPlatform]);
+
+  // Fetch data summary for deletion section - defined early to avoid reference error
+  const fetchDataSummary = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/user/data-summary`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDataSummary(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch data summary', err);
+    }
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current !== null) {
@@ -134,19 +172,75 @@ export default function Settings() {
 
   const refreshConnection = useCallback(async () => {
     try {
-      const response = await fetch(META_DEBUG_URL, { cache: 'no-store' });
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        return;
+      }
+
+      // Refresh Instagram connection
+      const response = await fetch(META_DEBUG_URL, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        cache: 'no-store',
+      });
       if (!response.ok) {
         if (response.status === 404) {
           updateInstagramFromPayload(null);
-          return null;
+        } else {
+          throw new Error(`Meta debug failed (${response.status})`);
         }
-        throw new Error(`Meta debug failed (${response.status})`);
+      } else {
+        const payload = (await response.json()) as MetaDebugResponse;
+        updateInstagramFromPayload(payload);
       }
-      const payload = (await response.json()) as MetaDebugResponse;
-      updateInstagramFromPayload(payload);
-      return payload;
+
+      // Refresh TikTok connection
+      const tiktokResponse = await fetch(TIKTOK_CONNECTION_URL, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        cache: 'no-store',
+      });
+
+      if (tiktokResponse.ok) {
+        const tiktokData = await tiktokResponse.json();
+        setAccounts(prev =>
+          prev.map(account => {
+            if (account.platform === 'tiktok') {
+              return {
+                ...account,
+                connected: true,
+                username: tiktokData.user?.displayName ?? tiktokData.user?.username ?? 'TikTok',
+                lastSync: tiktokData.connection?.updatedAt ?? tiktokData.connection?.createdAt,
+                profileImage: tiktokData.user?.avatarUrl ?? account.profileImage,
+                followers: tiktokData.user?.followerCount ?? account.followers,
+              };
+            }
+            return account;
+          }),
+        );
+      } else if (tiktokResponse.status === 404) {
+        setAccounts(prev =>
+          prev.map(account => {
+            if (account.platform === 'tiktok') {
+              return {
+                ...account,
+                connected: false,
+                username: '',
+                lastSync: undefined,
+                profileImage: undefined,
+                followers: undefined,
+              };
+            }
+            return account;
+          }),
+        );
+      }
+
+      return null;
     } catch (error) {
-      console.error('Failed to refresh Meta connection', error);
+      console.error('Failed to refresh connections', error);
       updateInstagramFromPayload(null);
       return null;
     }
@@ -193,6 +287,16 @@ export default function Settings() {
 
   useEffect(() => {
     void refreshConnection();
+
+    // Check for TikTok connection success
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tiktok_connected') === '1') {
+      setSuccessPlatform('TikTok');
+      setShowSuccessModal(true);
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings');
+    }
+
     return () => {
       isMountedRef.current = false;
       awaitingConnectionRef.current = false;
@@ -201,6 +305,11 @@ export default function Settings() {
       connectionWaitStartRef.current = null;
     };
   }, [refreshConnection, stopPolling, closePopup]);
+
+  // Fetch data summary separately to avoid circular dependency
+  useEffect(() => {
+    void fetchDataSummary();
+  }, [fetchDataSummary]);
 
   const handleMetaConnectionMessage = useCallback(
     (event: MessageEvent) => {
@@ -241,9 +350,18 @@ export default function Settings() {
     };
   }, [handleMetaConnectionMessage]);
 
-  const handleConnect = useCallback((platform: 'instagram' | 'tiktok') => {
+  const handleConnect = useCallback(async (platform: 'instagram' | 'tiktok') => {
     if (platform === 'instagram') {
       if (typeof window === 'undefined') {
+        return;
+      }
+
+      // Get authentication token
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        console.error('No authentication token found');
+        alert('ログインが必要です。ログインページにリダイレクトします。');
+        navigate('/login');
         return;
       }
 
@@ -252,6 +370,7 @@ export default function Settings() {
       const stateParam = `instagram-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const loginUrl = new URL(META_LOGIN_URL);
       loginUrl.searchParams.set('state', stateParam);
+      loginUrl.searchParams.set('token', token);
       popupRef.current = window.open(
         loginUrl.toString(),
         'meta-login',
@@ -271,48 +390,133 @@ export default function Settings() {
       return;
     }
 
-    setConnectingPlatform(platform);
+    if (platform === 'tiktok') {
+      if (typeof window === 'undefined') {
+        return;
+      }
 
-    // 接続シミュレーション（TikTok）
-    setTimeout(() => {
-      setAccounts(prev =>
-        prev.map(account => {
-          if (account.platform === platform) {
-            return {
-              ...account,
-              connected: true,
-              username: platform === 'instagram' ? '@your_brand_official' : '@your_brand_tiktok',
-              lastSync: '今',
-              profileImage:
-                platform === 'instagram'
-                  ? 'https://readdy.ai/api/search-image?query=professional%20brand%20logo%20icon%20minimalist%20design%20on%20gradient%20pink%20purple%20background%20clean%20modern%20aesthetic&width=100&height=100&seq=ig1&orientation=squarish'
-                  : 'https://readdy.ai/api/search-image?query=professional%20brand%20logo%20icon%20minimalist%20design%20on%20black%20background%20with%20cyan%20accent%20clean%20modern%20aesthetic&width=100&height=100&seq=tt1&orientation=squarish',
-              followers: platform === 'instagram' ? 12500 : 8300,
-            };
-          }
-          return account;
-        }),
-      );
-      setConnectingPlatform(null);
-      setSuccessPlatform(platform === 'instagram' ? 'Instagram' : 'TikTok');
-      setShowSuccessModal(true);
-    }, 2000);
+      setConnectingPlatform(platform);
+      
+      // Get authentication token
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        console.error('No authentication token found');
+        alert('ログインが必要です。ログインページにリダイレクトします。');
+        navigate('/login');
+        setConnectingPlatform(null);
+        return;
+      }
+
+      // TikTok OAuth flow - redirect with Authorization header
+      // We need to use a temporary redirect approach since we can't set headers on window.location
+      const loginUrl = `${TIKTOK_LOGIN_URL}?token=${encodeURIComponent(token)}`;
+      window.location.href = loginUrl;
+      return;
+    }
   }, [startPolling]);
 
   const [pendingDisconnectPlatform, setPendingDisconnectPlatform] = useState<
     'instagram' | 'tiktok' | null
   >(null);
 
+  // Account deletion state
+  const [dataSummary, setDataSummary] = useState<DataSummary | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Company name state
+  const [companyName, setCompanyName] = useState('');
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
+
+  // Fetch user profile including company name
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('nekocafe_token');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCompanyName(data.user?.companyName || '');
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile', err);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const handleSaveCompanyName = async () => {
+    setIsSavingCompany(true);
+    try {
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ companyName }),
+      });
+
+      if (response.ok) {
+        setIsEditingCompany(false);
+        setCompanySaveSuccess(true);
+        setTimeout(() => setCompanySaveSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save company name', err);
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
+
   const handleDisconnect = useCallback(
     async (platform: 'instagram' | 'tiktok') => {
+      const token = localStorage.getItem('nekocafe_token');
+      
       if (platform === 'instagram') {
         try {
-          const response = await fetch(META_DISCONNECT_URL, { method: 'DELETE' });
+          const response = await fetch(META_DISCONNECT_URL, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
           if (!response.ok && response.status !== 404) {
             throw new Error(`Meta disconnect failed (${response.status})`);
           }
         } catch (error) {
           console.error('Failed to clear Meta connection', error);
+        } finally {
+          void refreshConnection();
+        }
+      }
+
+      if (platform === 'tiktok') {
+        try {
+          const response = await fetch(TIKTOK_DISCONNECT_URL, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (!response.ok && response.status !== 404) {
+            throw new Error(`TikTok disconnect failed (${response.status})`);
+          }
+        } catch (error) {
+          console.error('Failed to clear TikTok connection', error);
         } finally {
           void refreshConnection();
         }
@@ -352,29 +556,42 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (confirmText !== '削除する') return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        setDeleteError('ログインが必要です');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/user/delete`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'アカウントの削除に失敗しました');
+      }
+
+      localStorage.removeItem('nekocafe_token');
+      localStorage.removeItem('nekocafe_user');
+      alert('アカウントとすべてのデータが削除されました。');
+      navigate('/login');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'アカウントの削除に失敗しました');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
   const instagramAccount = accounts.find(a => a.platform === 'instagram');
   const tiktokAccount = accounts.find(a => a.platform === 'tiktok');
-
-  const features = [
-    {
-      number: '01',
-      title: '自動投稿',
-      description: 'コンテンツを自動的に複数のSNSに同時投稿できます',
-      icon: 'ri-send-plane-line',
-    },
-    {
-      number: '02',
-      title: '統合分析',
-      description: '全プラットフォームのデータを一元管理・分析',
-      icon: 'ri-bar-chart-box-line',
-    },
-    {
-      number: '03',
-      title: 'スケジュール管理',
-      description: '最適な時間に投稿を自動スケジューリング',
-      icon: 'ri-calendar-schedule-line',
-    },
-  ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -384,10 +601,75 @@ export default function Settings() {
         <div className="p-8">
           {/* ヘッダー */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">SNSアカウント連携</h1>
+            <h1 className="text-2xl font-bold text-gray-900">アカウント管理</h1>
             <p className="text-sm text-gray-500 mt-1">
-              InstagramとTikTokを接続して、コンテンツを自動共有しましょう
+              SNSアカウントの連携とアカウント設定を管理します
             </p>
+          </div>
+
+          {/* 会社名設定セクション */}
+          <div className="mb-8 max-w-3xl">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">会社情報</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    会社名・組織名
+                  </label>
+                  {isEditingCompany ? (
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="例: 株式会社サンプル"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm"
+                      />
+                      <button
+                        onClick={handleSaveCompanyName}
+                        disabled={isSavingCompany}
+                        className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                      >
+                        {isSavingCompany ? '保存中...' : '保存'}
+                      </button>
+                      <button
+                        onClick={() => setIsEditingCompany(false)}
+                        className="px-4 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-900">
+                        {companyName || <span className="text-gray-400">未設定</span>}
+                      </p>
+                      <button
+                        onClick={() => setIsEditingCompany(true)}
+                        className="px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                      >
+                        <i className="ri-edit-line mr-1"></i>
+                        編集
+                      </button>
+                    </div>
+                  )}
+                  {companySaveSuccess && (
+                    <p className="mt-2 text-sm text-emerald-600">
+                      <i className="ri-check-line mr-1"></i>
+                      保存しました
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                サイドバーに表示される会社名・組織名を設定できます
+              </p>
+            </div>
+          </div>
+
+          {/* SNS連携セクション */}
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">SNSアカウント連携</h2>
           </div>
 
           {/* 連携カードエリア */}
@@ -568,22 +850,6 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* 機能説明エリア */}
-          <div className="mt-12 max-w-3xl">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">連携でできること</h2>
-            <div className="grid grid-cols-3 gap-6">
-              {features.map((feature) => (
-                <div key={feature.number} className="bg-white rounded-xl p-5 border border-gray-100">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-4">
-                    <i className={`${feature.icon} text-white text-lg`}></i>
-                  </div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">{feature.title}</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">{feature.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* 接続ガイド */}
           <div className="mt-12 max-w-3xl">
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
@@ -646,6 +912,41 @@ export default function Settings() {
               </div>
             </div>
           </div>
+
+          {/* アカウント削除セクション */}
+          <div className="mt-12 max-w-3xl">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">アカウント削除</h2>
+            <div className="bg-white rounded-xl border border-red-200 p-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <i className="ri-delete-bin-line text-red-600 text-lg"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">アカウントを完全に削除</h3>
+                  <p className="text-xs text-gray-600 mb-4">
+                    アカウントを削除すると、すべてのデータ（SNS連携情報、コンテンツアイデア、スクリプトなど）が完全に削除されます。この操作は取り消せません。
+                  </p>
+                  {dataSummary && (
+                    <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                      <p className="text-xs text-gray-500 mb-2">削除されるデータ:</p>
+                      <ul className="text-xs text-gray-600 space-y-1">
+                        <li>• Instagram連携: {dataSummary.dataCounts.metaConnections}件</li>
+                        <li>• TikTok連携: {dataSummary.dataCounts.tiktokConnections}件</li>
+                        <li>• コンテンツアイデア: {dataSummary.dataCounts.contentIdeas}件</li>
+                        <li>• コンテンツスクリプト: {dataSummary.dataCounts.contentScripts}件</li>
+                      </ul>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    アカウントを削除する
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -694,6 +995,66 @@ export default function Settings() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all"
               >
                 解除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* アカウント削除確認モーダル */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+                <i className="ri-delete-bin-line text-3xl text-red-500"></i>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">本当に削除しますか？</h3>
+              <p className="text-sm text-gray-500">
+                この操作は取り消せません。確認のため「削除する」と入力してください。
+              </p>
+            </div>
+
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="削除する"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+            />
+
+            {deleteError && (
+              <p className="text-sm text-red-600 mb-4">{deleteError}</p>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setConfirmText('');
+                  setDeleteError(null);
+                }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={confirmText !== '削除する' || isDeleting}
+                className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+                  confirmText === '削除する' && !isDeleting
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {isDeleting ? (
+                  <span className="flex items-center justify-center">
+                    <i className="ri-loader-4-line animate-spin mr-2"></i>
+                    削除中...
+                  </span>
+                ) : (
+                  '削除を実行'
+                )}
               </button>
             </div>
           </div>

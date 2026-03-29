@@ -7,7 +7,24 @@ interface PostingHoursChartProps {
 }
 
 export default function PostingHoursChart({ data }: PostingHoursChartProps) {
-  const maxEngagement = Math.max(...data.map(d => d.engagement));
+  // データが空の場合のガード
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">投稿時間帯</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">時間帯別エンゲージメント</p>
+          </div>
+        </div>
+        <div className="h-[160px] flex items-center justify-center text-gray-400 text-sm">
+          データがありません
+        </div>
+      </div>
+    );
+  }
+
+  const maxEngagement = Math.max(...data.map(d => d.engagement)) || 1;
 
   const getBarColor = (value: number) => {
     const ratio = value / maxEngagement;

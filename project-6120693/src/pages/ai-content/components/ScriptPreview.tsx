@@ -1,41 +1,71 @@
+import { useState } from 'react';
+
 interface ScriptPreviewProps {
-  idea: any;
+  script: any;
   onClose: () => void;
+  onSave?: () => void;
+  isSaved?: boolean;
 }
 
-export default function ScriptPreview({ idea, onClose }: ScriptPreviewProps) {
-  const script = {
-    hook: "🎬 Ever wondered what it's really like to work here? Let me show you!",
-    body: [
-      "Start your day with our team standup - everyone's voice matters here",
-      "Dive into exciting projects that actually make a difference",
-      "Lunch with the team - we're not just colleagues, we're friends",
-      "Afternoon collaboration sessions where creativity flows",
-      "End the day knowing you've contributed to something meaningful"
-    ],
-    cta: "Ready to join our team? Link in bio to apply! 🚀",
-    hashtags: "#DayInTheLife #CompanyCulture #JoinOurTeam #CareerGoals #WorkLife",
-    duration: "30-45 seconds",
-    tips: [
-      "Use upbeat background music to maintain energy",
-      "Show genuine moments - authenticity is key",
-      "Include diverse team members and perspectives",
-      "Keep transitions quick and dynamic",
-      "End with a clear call-to-action"
-    ]
+export default function ScriptPreview({ script, onClose, onSave, isSaved = false }: ScriptPreviewProps) {
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, section: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSection(section);
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const copyFullScript = () => {
+    const fullText = `
+【動画タイトル】
+${script.videoTitle}
+
+【投稿の狙い】
+${script.objective}
+
+【動画構成】
+${script.timeline?.map((t: any) => `${t.time}: ${t.content}`).join('\n')}
+
+【完全セリフ台本】
+${script.fullScript}
+
+【撮影指示】
+${script.shootingInstructions?.map((s: any) => `${s.scene}: ${s.instruction}`).join('\n')}
+
+【テロップ案】
+${script.telops?.join('\n')}
+
+【キャプション】
+${script.captionText}
+
+【ハッシュタグ】
+${script.hashtags}
+
+【サムネイル案】
+${script.thumbnailIdea}
+
+【想定動画尺】
+${script.estimatedDuration}
+
+【この投稿が伸びやすい理由】
+${script.whyItWorks}
+    `.trim();
+    
+    copyToClipboard(fullText, 'full');
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600">
               <i className="ri-file-text-line text-xl text-white"></i>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{idea.title}</h2>
-              <p className="text-sm text-gray-600">AI-Generated Script</p>
+              <h2 className="text-lg font-semibold text-gray-900">{script.videoTitle || script.title}</h2>
+              <p className="text-sm text-gray-600">詳細台本</p>
             </div>
           </div>
           <button
@@ -47,78 +77,168 @@ export default function ScriptPreview({ idea, onClose }: ScriptPreviewProps) {
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-start space-x-3">
-              <i className="ri-lightbulb-line text-blue-600 text-lg mt-0.5"></i>
-              <div>
-                <p className="text-sm font-medium text-blue-900">Script Overview</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Recommended duration: {script.duration} • Platform: {idea.platform === 'instagram' ? 'Instagram Reels' : 'TikTok'}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-6">
+            {/* 投稿の狙い */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <i className="ri-flashlight-line text-orange-600 mr-2"></i>
-                Hook (First 3 seconds)
-              </h3>
-              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <p className="text-sm text-gray-900">{script.hook}</p>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-target-line text-emerald-600 mr-2"></i>
+                  投稿の狙い
+                </h3>
+                <button
+                  onClick={() => copyToClipboard(script.objective, 'objective')}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                >
+                  <i className={`${copiedSection === 'objective' ? 'ri-check-line text-green-600' : 'ri-file-copy-line'} mr-1`}></i>
+                  {copiedSection === 'objective' ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                <p className="text-sm text-gray-900">{script.objective}</p>
               </div>
             </div>
 
+            {/* 動画構成 */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <i className="ri-list-check text-blue-600 mr-2"></i>
-                Main Content
-              </h3>
-              <div className="space-y-3">
-                {script.body.map((line, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold">
-                      {index + 1}
-                    </span>
-                    <p className="text-sm text-gray-900">{line}</p>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-time-line text-blue-600 mr-2"></i>
+                  動画構成（秒数付き）
+                </h3>
+                <span className="text-xs text-gray-500">想定尺: {script.estimatedDuration}</span>
               </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <i className="ri-megaphone-line text-green-600 mr-2"></i>
-                Call-to-Action
-              </h3>
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-sm text-gray-900">{script.cta}</p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <i className="ri-hashtag text-purple-600 mr-2"></i>
-                Hashtags
-              </h3>
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-sm text-gray-900">{script.hashtags}</p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <i className="ri-lightbulb-flash-line text-yellow-600 mr-2"></i>
-                Production Tips
-              </h3>
               <div className="space-y-2">
-                {script.tips.map((tip, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <i className="ri-check-line text-yellow-600 mt-0.5"></i>
-                    <p className="text-sm text-gray-900">{tip}</p>
+                {script.timeline?.map((item: any, index: number) => (
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <span className="flex-shrink-0 px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded">
+                      {item.time}
+                    </span>
+                    <p className="text-sm text-gray-900 flex-1">{item.content}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* 完全セリフ台本 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-chat-quote-line text-purple-600 mr-2"></i>
+                  完全セリフ台本
+                </h3>
+                <button
+                  onClick={() => copyToClipboard(script.fullScript, 'script')}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                >
+                  <i className={`${copiedSection === 'script' ? 'ri-check-line text-green-600' : 'ri-file-copy-line'} mr-1`}></i>
+                  {copiedSection === 'script' ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-sm text-gray-900 whitespace-pre-wrap">{script.fullScript}</p>
+              </div>
+            </div>
+
+            {/* 撮影指示 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-camera-line text-orange-600 mr-2"></i>
+                  撮影指示
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {script.shootingInstructions?.map((item: any, index: number) => (
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <span className="flex-shrink-0 font-semibold text-orange-900 text-sm">
+                      {item.scene}:
+                    </span>
+                    <p className="text-sm text-gray-900">{item.instruction}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* テロップ案 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-text text-pink-600 mr-2"></i>
+                  テロップ案
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {script.telops?.map((telop: string, index: number) => (
+                  <div key={index} className="p-3 bg-pink-50 rounded-lg border border-pink-200">
+                    <p className="text-sm text-gray-900">{telop}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* キャプション */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-article-line text-teal-600 mr-2"></i>
+                  キャプション案
+                </h3>
+                <button
+                  onClick={() => copyToClipboard(script.captionText, 'caption')}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                >
+                  <i className={`${copiedSection === 'caption' ? 'ri-check-line text-green-600' : 'ri-file-copy-line'} mr-1`}></i>
+                  {copiedSection === 'caption' ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
+              <div className="p-4 bg-teal-50 rounded-lg border border-teal-200">
+                <p className="text-sm text-gray-900 whitespace-pre-wrap">{script.captionText}</p>
+              </div>
+            </div>
+
+            {/* ハッシュタグ */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-hashtag text-indigo-600 mr-2"></i>
+                  ハッシュタグ
+                </h3>
+                <button
+                  onClick={() => copyToClipboard(script.hashtags, 'hashtags')}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                >
+                  <i className={`${copiedSection === 'hashtags' ? 'ri-check-line text-green-600' : 'ri-file-copy-line'} mr-1`}></i>
+                  {copiedSection === 'hashtags' ? 'コピー済み' : 'コピー'}
+                </button>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                <p className="text-sm text-indigo-900">{script.hashtags}</p>
+              </div>
+            </div>
+
+            {/* サムネイル案 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-image-line text-yellow-600 mr-2"></i>
+                  サムネイル案
+                </h3>
+              </div>
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm text-gray-900">{script.thumbnailIdea}</p>
+              </div>
+            </div>
+
+            {/* この投稿が伸びやすい理由 */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <i className="ri-lightbulb-line text-green-600 mr-2"></i>
+                  この投稿が伸びやすい理由
+                </h3>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-sm text-gray-900">{script.whyItWorks}</p>
               </div>
             </div>
           </div>
@@ -129,15 +249,29 @@ export default function ScriptPreview({ idea, onClose }: ScriptPreviewProps) {
             onClick={onClose}
             className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors cursor-pointer whitespace-nowrap"
           >
-            Close
+            閉じる
           </button>
-          <button className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-colors cursor-pointer whitespace-nowrap">
-            <i className="ri-file-copy-line mr-2"></i>
-            Copy Script
-          </button>
-          <button className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md cursor-pointer whitespace-nowrap">
-            <i className="ri-download-line mr-2"></i>
-            Export
+          {onSave && !isSaved && (
+            <button
+              onClick={onSave}
+              className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors cursor-pointer whitespace-nowrap flex items-center"
+            >
+              <i className="ri-save-line mr-2"></i>
+              台本を保存
+            </button>
+          )}
+          {isSaved && (
+            <div className="px-5 py-2.5 bg-emerald-50 border-2 border-emerald-600 text-emerald-700 rounded-lg font-medium flex items-center">
+              <i className="ri-check-line mr-2"></i>
+              保存済み
+            </div>
+          )}
+          <button
+            onClick={copyFullScript}
+            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md cursor-pointer whitespace-nowrap flex items-center"
+          >
+            <i className={`${copiedSection === 'full' ? 'ri-check-line' : 'ri-file-copy-line'} mr-2`}></i>
+            {copiedSection === 'full' ? 'コピー済み' : '全体をコピー'}
           </button>
         </div>
       </div>

@@ -2,13 +2,9 @@
 import Sidebar from './components/Sidebar';
 import InstagramDetail from './components/InstagramDetail';
 import TikTokDetail from './components/TikTokDetail';
-import ActionInsights from './components/ActionInsights';
 import WhitepaperSection from './components/WhitepaperSection';
 import { 
-  globalKPIs, 
-  recentPosts,
-  trendingHashtags,
-  trendingAudios
+  globalKPIs
 } from '../../mocks/analytics';
 
 export default function Dashboard() {
@@ -45,23 +41,9 @@ export default function Dashboard() {
           {/* TikTok 詳細分析 */}
           <TikTokDetail />
 
-          {/* アクションインサイト */}
-          <ActionInsights 
-            topPosts={recentPosts}
-            hashtags={trendingHashtags}
-            audios={trendingAudios}
-          />
-
           {/* ホワイトペーパー */}
           <div className="mt-10">
-            <WhitepaperSection 
-              insights={{
-                followers: globalKPIs.totalFollowers,
-                impressions: globalKPIs.totalImpressions,
-                engagementRate: globalKPIs.engagementRate,
-                comments: '1,247'
-              }}
-            />
+            <WhitepaperSection />
           </div>
         </div>
       </div>

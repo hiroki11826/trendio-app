@@ -3,11 +3,13 @@ import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
+import cookieParser from "cookie-parser";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { JwtPayload, Secret, SignOptions } from "jsonwebtoken";
 import { Pool } from "pg";
-import { PrismaClient } from "@prisma/client";
+import pkg from "@prisma/client";
+const { PrismaClient } = pkg;
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   ensureMetaConnectionHasIgUser,
@@ -20,6 +22,26 @@ import {
   metaLogin,
   setMetaPrismaClient,
 } from "../routes/metaAuth.js";
+import {
+  tiktokCallback,
+  tiktokLogin,
+  setTikTokPrismaClient,
+} from "../routes/tiktokAuth.js";
+import {
+  getUserInfo,
+  getVideoList,
+  TikTokApiError,
+} from "./services/tiktokApi.js";
+import {
+  generateContentIdeas,
+  generateScript,
+  analyzeTrends,
+  generateInsightReport,
+  GrokApiError,
+} from "./services/grokApi.js";
+import {
+  analyzeInstagramTrends,
+} from "./services/instagramTrends.js";
 
 const jwtSecretRaw = process.env.JWT_SECRET;
 const databaseUrl = process.env.DATABASE_URL;
@@ -52,6 +74,7 @@ const prisma = new PrismaClient({
 });
 
 setMetaPrismaClient(prisma);
+setTikTokPrismaClient(prisma);
 
 const isDevelopment = (process.env.NODE_ENV ?? "development") !== "production";
 const serverLogPath = path.resolve(process.cwd(), "..", "server.log");
@@ -65,6 +88,15 @@ const logErrorToFile = (entry: Record<string, unknown>) => {
 type InsightMetric = {
   name?: string;
   values?: Array<{ value?: number | Record<string, number>; end_time?: string }>;
+  total_value?: {
+    breakdowns?: Array<{
+      dimension_keys?: string[];
+      results?: Array<{
+        dimension_values?: string[];
+        value?: number;
+      }>;
+    }>;
+  };
 };
 
 type MetaMedia = {
@@ -81,7 +113,7 @@ const fetchInsights = async (
   accessToken: string,
   igUserId: string,
   metric: string,
-  options?: { period?: string; since?: number; until?: number },
+  options?: { period?: string; since?: number; until?: number; metric_type?: string; breakdown?: string; timeframe?: string },
 ) => {
   const params: Record<string, string> = {
     access_token: accessToken,
@@ -90,6 +122,9 @@ const fetchInsights = async (
   };
   if (options?.since) params.since = String(options.since);
   if (options?.until) params.until = String(options.until);
+  if (options?.metric_type) params.metric_type = options.metric_type;
+  if (options?.breakdown) params.breakdown = options.breakdown;
+  if (options?.timeframe) params.timeframe = options.timeframe;
 
   const logParams = new URLSearchParams(params);
   logParams.delete("access_token");
@@ -243,6 +278,81 @@ const buildGenderBreakdown = (valueObject?: Record<string, number>) => {
   };
 };
 
+const buildGenderBreakdownFromResults = (metricData: InsightMetric[] | undefined) => {
+  const results = metricData?.[0]?.total_value?.breakdowns?.[0]?.results;
+  if (!results || results.length === 0) {
+    return { male: 0, female: 0, other: 0, buckets: [] as { label: string; male: number; female: number; other: number }[] };
+  }
+
+  let maleTotal = 0;
+  let femaleTotal = 0;
+  let otherTotal = 0;
+
+  const bucketEntries = [
+    { label: "13-17", matches: (range?: string) => range === "13-17" },
+    { label: "18-24", matches: (range?: string) => range === "18-24" },
+    { label: "25-34", matches: (range?: string) => range === "25-34" },
+    {
+      label: "35+",
+      matches: (range?: string) => {
+        if (!range) {
+          return false;
+        }
+        const parts = range.split("-");
+        const min = parseInt(parts[0] ?? "", 10);
+        return !Number.isNaN(min) && min >= 35;
+      },
+    },
+  ].map((bucket) => ({ ...bucket, male: 0, female: 0, other: 0 }));
+
+  results.forEach((result) => {
+    const [ageRange, gender] = result.dimension_values ?? [];
+    const value = result.value ?? 0;
+    
+    if (!ageRange || !gender) {
+      return;
+    }
+
+    const genderLower = gender.toLowerCase();
+    const targetBucket = bucketEntries.find((bucket) => bucket.matches(ageRange));
+
+    if (genderLower === "m") {
+      maleTotal += value;
+      if (targetBucket) {
+        targetBucket.male += value;
+      }
+    } else if (genderLower === "f") {
+      femaleTotal += value;
+      if (targetBucket) {
+        targetBucket.female += value;
+      }
+    } else {
+      otherTotal += value;
+      if (targetBucket) {
+        targetBucket.other += value;
+      }
+    }
+  });
+
+  const buckets = bucketEntries.map((bucket) => {
+    const total = bucket.male + bucket.female + bucket.other;
+    const maxValue = total || 1;
+    return {
+      label: bucket.label,
+      male: Math.round((bucket.male / maxValue) * 100),
+      female: Math.round((bucket.female / maxValue) * 100),
+      other: Math.round((bucket.other / maxValue) * 100),
+    };
+  });
+
+  return {
+    male: maleTotal,
+    female: femaleTotal,
+    other: otherTotal,
+    buckets,
+  };
+};
+
 const buildRegions = (metricData: InsightMetric[] | undefined) => {
   const valueObject = metricData?.[0]?.values?.[0]?.value;
   if (!valueObject || typeof valueObject !== "object") {
@@ -259,6 +369,40 @@ const buildRegions = (metricData: InsightMetric[] | undefined) => {
       name,
       value,
       percentage: Number(((value / total) * 100).toFixed(1)),
+    }));
+};
+
+const buildRegionsFromResults = (cityData: InsightMetric[] | undefined, countryData: InsightMetric[] | undefined) => {
+  const cityResults = cityData?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+  const countryResults = countryData?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+
+  const combined: Array<{ name: string; value: number }> = [];
+
+  cityResults.forEach((result) => {
+    const name = result.dimension_values?.[0];
+    const value = result.value ?? 0;
+    if (name) {
+      combined.push({ name, value });
+    }
+  });
+
+  countryResults.forEach((result) => {
+    const code = result.dimension_values?.[0];
+    const value = result.value ?? 0;
+    if (code) {
+      combined.push({ name: code, value });
+    }
+  });
+
+  const total = combined.reduce((sum, item) => sum + item.value, 0) || 1;
+
+  return combined
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8)
+    .map((item) => ({
+      name: item.name,
+      value: item.value,
+      percentage: Number(((item.value / total) * 100).toFixed(1)),
     }));
 };
 
@@ -340,14 +484,22 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
       userId: payload.userId,
       email: payload.email,
     };
+    (req as any).user = { userId: payload.userId, email: payload.email }; // For compatibility
     next();
   } catch (error) {
     res.status(401).json({ error: "Invalid or expired session token." });
   }
 };
 
+// Alias for consistency
+const authenticateToken = authMiddleware;
+
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://app.snsinsight.jp', 'https://trendio.jp', 'https://app.trendio.jp'],
+  credentials: true,
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 app.get("/health", (_req: Request, res: Response) => {
@@ -367,7 +519,7 @@ app.get("/users", async (_req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.post("/auth/register", async (req: Request, res: Response, next: NextFunction) => {
+app.post("/api/auth/register", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password } = req.body;
 
@@ -412,7 +564,7 @@ app.post("/auth/register", async (req: Request, res: Response, next: NextFunctio
   }
 });
 
-app.post("/auth/login", async (req: Request, res: Response, next: NextFunction) => {
+app.post("/api/auth/login", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password, remember } = req.body;
     if (!email || !password) {
@@ -456,7 +608,7 @@ app.post("/auth/login", async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-app.get("/auth/me", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+app.get("/api/auth/me", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   const authReq = req as AuthenticatedRequest;
   const userId = authReq.auth?.userId;
   if (!userId) {
@@ -483,15 +635,100 @@ app.get("/auth/me", authMiddleware, async (req: Request, res: Response, next: Ne
   }
 });
 
-app.get("/api/meta/login", metaLogin);
-app.get("/auth/meta/login", metaLogin);
-app.get("/auth/meta/callback", metaCallback);
-
-app.get("/api/meta/debug", async (_req: Request, res: Response, next: NextFunction) => {
+app.get("/api/meta/login", metaLogin);
+
+app.get("/api/auth/meta/login", metaLogin);
+
+app.get("/api/auth/meta/callback", metaCallback);
+
+app.get("/api/auth/tiktok/login", tiktokLogin);
+
+app.get("/api/auth/tiktok/callback", tiktokCallback);
+
+// Get TikTok connection status
+app.get("/api/tiktok/connection", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const connection = await prisma.metaConnection.findFirst({
+    const userId = (req as any).user.userId;
+
+    const connection = await prisma.tikTokConnection.findFirst({
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
+
+    if (!connection) {
+      res.status(404).json({ error: "tiktok_connection_not_found" });
+      return;
+    }
+
+    // Get user info from TikTok
+    try {
+      const userInfo = await getUserInfo(connection.accessToken);
+      
+      res.json({
+        connection: {
+          id: connection.id,
+          openId: connection.openId,
+          expiresAt: connection.expiresAt?.toISOString() ?? null,
+          createdAt: connection.createdAt.toISOString(),
+          updatedAt: connection.updatedAt.toISOString(),
+        },
+        user: {
+          displayName: userInfo.display_name,
+          username: userInfo.union_id ?? userInfo.open_id,
+          avatarUrl: userInfo.avatar_url_100 ?? userInfo.avatar_url,
+          followerCount: userInfo.follower_count ?? 0,
+        },
+      });
+    } catch (error) {
+      // If TikTok API fails, return connection info only
+      res.json({
+        connection: {
+          id: connection.id,
+          openId: connection.openId,
+          expiresAt: connection.expiresAt?.toISOString() ?? null,
+          createdAt: connection.createdAt.toISOString(),
+          updatedAt: connection.updatedAt.toISOString(),
+        },
+        user: null,
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete TikTok connection
+app.delete("/api/tiktok/connection", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    const deleted = await prisma.tikTokConnection.deleteMany({
+      where: { userId },
+    });
+
+    if (deleted.count === 0) {
+      res.status(404).json({ error: "No TikTok connection exists to delete." });
+      return;
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/meta/debug", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+    
+    const connection = userId
+      ? await prisma.metaConnection.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        })
+      : await prisma.metaConnection.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
 
     if (!connection) {
       res.status(404).json({ error: "No Meta connection record found yet." });
@@ -500,6 +737,7 @@ app.get("/api/meta/debug", async (_req: Request, res: Response, next: NextFuncti
 
     const metaConnectionSafe = {
       id: connection.id,
+      userId: connection.userId,
       pageId: connection.pageId ?? null,
       igUserId: connection.igUserId ?? null,
       expiresAt: connection.expiresAt?.toISOString?.() ?? null,
@@ -514,9 +752,71 @@ app.get("/api/meta/debug", async (_req: Request, res: Response, next: NextFuncti
   }
 });
 
-app.delete("/api/meta/connection", async (_req: Request, res: Response, next: NextFunction) => {
+app.get("/api/meta/test-demographics", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const deleted = await prisma.metaConnection.deleteMany({});
+    const userId = (req as any).user?.userId;
+    
+    const connection = userId
+      ? await prisma.metaConnection.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        })
+      : await prisma.metaConnection.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
+
+    if (!connection || !connection.pageAccessToken || !connection.igUserId) {
+      res.status(404).json({ error: "No valid Meta connection found." });
+      return;
+    }
+
+    const pageToken = connection.pageAccessToken;
+    const igUserId = connection.igUserId;
+
+    console.log("Testing demographics API with:", { igUserId });
+
+    // Test 1: Gender/Age
+    const genderAgeResult = await fetchInsights(pageToken, igUserId, "follower_demographics", {
+      period: "lifetime",
+      timeframe: "this_month",
+      metric_type: "total_value",
+      breakdown: "age,gender",
+    }).catch((error) => ({ error: error.message, graph: error.graph }));
+
+    // Test 2: City
+    const cityResult = await fetchInsights(pageToken, igUserId, "follower_demographics", {
+      period: "lifetime",
+      timeframe: "this_month",
+      metric_type: "total_value",
+      breakdown: "city",
+    }).catch((error) => ({ error: error.message, graph: error.graph }));
+
+    // Test 3: Country
+    const countryResult = await fetchInsights(pageToken, igUserId, "follower_demographics", {
+      period: "lifetime",
+      timeframe: "this_month",
+      metric_type: "total_value",
+      breakdown: "country",
+    }).catch((error) => ({ error: error.message, graph: error.graph }));
+
+    res.json({
+      genderAge: genderAgeResult,
+      city: cityResult,
+      country: countryResult,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/meta/connection", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+    
+    const deleted = userId
+      ? await prisma.metaConnection.deleteMany({ where: { userId } })
+      : await prisma.metaConnection.deleteMany({});
+      
     if (deleted.count === 0) {
       res.status(404).json({ error: "No Meta connection exists to delete." });
       return;
@@ -527,14 +827,22 @@ app.delete("/api/meta/connection", async (_req: Request, res: Response, next: Ne
   }
 });
 
-app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: NextFunction) => {
+app.get("/api/dashboard/instagram", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const connection = await prisma.metaConnection.findFirst({
-      orderBy: { createdAt: "desc" },
-    });
+    const userId = (req as any).user?.userId;
+    
+    const connection = userId
+      ? await prisma.metaConnection.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        })
+      : await prisma.metaConnection.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
 
     if (connection) {
       console.log("dashboard/instagram: MetaConnection", {
+        userId: connection.userId,
         pageId: connection.pageId,
         igUserId: connection.igUserId,
         expiresAt: connection.expiresAt?.toISOString?.() ?? null,
@@ -563,40 +871,77 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
 
     const [
       followerCounts,
-      impressions,
       reach,
       profileViews,
       websiteClicks,
       genderAge,
-      cities,
+      city,
+      country,
     ] = await Promise.all([
-      fetchInsights(pageToken, igUserId, "audience_follower_count", {
+      fetchInsights(pageToken, igUserId, "follower_count", {
         since: sinceSeconds,
         until: nowSeconds,
-      }),
-      fetchInsights(pageToken, igUserId, "impressions", {
-        since: sinceSeconds,
-        until: nowSeconds,
+        // follower_countはmetric_type不要
+      }).catch((error) => {
+        console.warn('follower_count failed, returning empty:', error.message);
+        return [];
       }),
       fetchInsights(pageToken, igUserId, "reach", {
         since: sinceSeconds,
         until: nowSeconds,
+        metric_type: "total_value",
+      }).catch((error) => {
+        console.warn('reach failed, returning empty:', error.message);
+        return [];
       }),
       fetchInsights(pageToken, igUserId, "profile_views", {
         since: sinceSeconds,
         until: nowSeconds,
+        metric_type: "total_value",
+      }).catch((error) => {
+        console.warn('profile_views failed, returning empty:', error.message);
+        return [];
       }),
       fetchInsights(pageToken, igUserId, "website_clicks", {
         since: sinceSeconds,
         until: nowSeconds,
+        metric_type: "total_value",
+      }).catch((error) => {
+        console.warn('website_clicks failed, returning empty:', error.message);
+        return [];
       }),
-      fetchInsights(pageToken, igUserId, "audience_gender_age", {
+      // 性別・年齢データ
+      fetchInsights(pageToken, igUserId, "follower_demographics", {
         period: "lifetime",
+        timeframe: "this_month",
+        metric_type: "total_value",
+        breakdown: "age,gender",
+      }).catch((error) => {
+        console.warn('follower_demographics (age,gender) failed, returning empty:', error.message);
+        return [];
       }),
-      fetchInsights(pageToken, igUserId, "audience_city", {
+      // 都市データ
+      fetchInsights(pageToken, igUserId, "follower_demographics", {
         period: "lifetime",
+        timeframe: "this_month",
+        metric_type: "total_value",
+        breakdown: "city",
+      }).catch((error) => {
+        console.warn('follower_demographics (city) failed, returning empty:', error.message);
+        return [];
+      }),
+      // 国データ
+      fetchInsights(pageToken, igUserId, "follower_demographics", {
+        period: "lifetime",
+        timeframe: "this_month",
+        metric_type: "total_value",
+        breakdown: "country",
+      }).catch((error) => {
+        console.warn('follower_demographics (country) failed, returning empty:', error.message);
+        return [];
       }),
     ]);
+
 
     const accountFields = await graphFetch<{
       id?: string;
@@ -646,16 +991,17 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       siteClicks: normalizedSiteClicks.reduce((total, value) => total + value, 0),
     };
 
-    const genderAgeValue = genderAge[0]?.values?.[0]?.value;
-    const genderBreakdown = buildGenderBreakdown(
-      typeof genderAgeValue === "object" && genderAgeValue !== null ? (genderAgeValue as Record<string, number>) : undefined,
-    );
+    // 性別・年齢データの処理
+    const genderBreakdown = buildGenderBreakdownFromResults(genderAge);
     const genderTotals = genderBreakdown.male + genderBreakdown.female + genderBreakdown.other || 1;
     const genderRatio = {
       male: Math.round((genderBreakdown.male / genderTotals) * 100),
       female: Math.round((genderBreakdown.female / genderTotals) * 100),
       other: Math.round((genderBreakdown.other / genderTotals) * 100),
     };
+
+    // 都市と国データを結合して地域データを作成
+    const regions = buildRegionsFromResults(city, country);
 
     res.json({
       account: {
@@ -670,7 +1016,7 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       summary: {
         followers: accountFields.followers_count ?? 0,
         profileViews: sumInsightValues(profileViews),
-        totalImpressions: sumInsightValues(impressions),
+        totalImpressions: sumInsightValues(reach), // impressionsは廃止されたのでreachを使用
         totalReach: sumInsightValues(reach),
       },
       followerTrend,
@@ -684,7 +1030,7 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
       actionSummary,
       genderByPeriod: genderBreakdown.buckets,
       genderRatio,
-      regions: buildRegions(cities),
+      regions,
       postingHours: buildPostingHours(recentMedia),
     });
   } catch (error) {
@@ -692,10 +1038,812 @@ app.get("/api/dashboard/instagram", async (_req: Request, res: Response, next: N
   }
 });
 
+app.get("/api/dashboard/tiktok", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const connection = await prisma.tikTokConnection.findFirst({
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!connection) {
+      res.status(404).json({ error: "tiktok_connection_not_found" });
+      return;
+    }
+
+    if (!connection.accessToken) {
+      res.status(422).json({ error: "access_token_missing" });
+      return;
+    }
+
+    const accessToken = connection.accessToken;
+
+    // Get user info
+    const userInfo = await getUserInfo(accessToken);
+
+    if (!userInfo) {
+      res.status(404).json({ error: "Failed to fetch TikTok user info." });
+      return;
+    }
+
+    // Get video list
+    const videoData = await getVideoList(accessToken, { max_count: 20 });
+    const videos = videoData?.videos ?? [];
+
+    // Calculate summary metrics
+    const totalLikes = videos.reduce((sum, video) => sum + (video.like_count ?? 0), 0);
+    const totalComments = videos.reduce((sum, video) => sum + (video.comment_count ?? 0), 0);
+    const totalShares = videos.reduce((sum, video) => sum + (video.share_count ?? 0), 0);
+    const totalViews = videos.reduce((sum, video) => sum + (video.view_count ?? 0), 0);
+    const avgEngagementRate = videos.length > 0
+      ? ((totalLikes + totalComments + totalShares) / totalViews) * 100
+      : 0;
+
+    // Format video list for response
+    const formattedVideos = videos.map((video) => ({
+      id: video.id,
+      title: video.title ?? video.video_description ?? "Untitled",
+      coverUrl: video.cover_image_url,
+      shareUrl: video.share_url,
+      createTime: video.create_time,
+      duration: video.duration,
+      likes: video.like_count ?? 0,
+      comments: video.comment_count ?? 0,
+      shares: video.share_count ?? 0,
+      views: video.view_count ?? 0,
+      engagementRate: video.view_count
+        ? (((video.like_count ?? 0) + (video.comment_count ?? 0) + (video.share_count ?? 0)) / video.view_count) * 100
+        : 0,
+    }));
+
+    res.json({
+      account: {
+        openId: userInfo.open_id,
+        displayName: userInfo.display_name,
+        avatarUrl: userInfo.avatar_url_100 ?? userInfo.avatar_url,
+        bioDescription: userInfo.bio_description,
+        isVerified: userInfo.is_verified ?? false,
+        followerCount: userInfo.follower_count ?? 0,
+        followingCount: userInfo.following_count ?? 0,
+        likesCount: userInfo.likes_count ?? 0,
+        videoCount: userInfo.video_count ?? 0,
+      },
+      summary: {
+        followers: userInfo.follower_count ?? 0,
+        totalLikes: totalLikes,
+        totalComments: totalComments,
+        totalShares: totalShares,
+        totalViews: totalViews,
+        avgEngagementRate: Number(avgEngagementRate.toFixed(2)),
+      },
+      videos: formattedVideos,
+    });
+  } catch (error) {
+    if (error instanceof TikTokApiError) {
+      console.error("TikTok API Error:", {
+        status: error.status,
+        body: error.body,
+        endpoint: error.endpoint,
+      });
+    }
+    next(error);
+  }
+});
+
+app.post("/api/ai/generate-ideas", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log("=== Generate Ideas Request ===");
+    console.log("Body:", req.body);
+    
+    const { industry, goal, freeInput } = req.body;
+
+    if (!industry || !goal) {
+      console.log("Missing industry or goal");
+      res.status(400).json({ error: "Industry and goal are required" });
+      return;
+    }
+
+    console.log("Calling Grok API with:", { industry, goal, freeInput });
+    const ideas = await generateContentIdeas(industry, goal, freeInput);
+    console.log("Generated ideas:", ideas);
+    
+    res.json({ ideas });
+  } catch (error) {
+    console.error("=== Generate Ideas Error ===");
+    console.error("Error:", error);
+    if (error instanceof GrokApiError) {
+      console.error("Grok API Error:", {
+        status: error.status,
+        body: error.body,
+      });
+    }
+    next(error);
+  }
+});
+
+app.post("/api/ai/generate-script", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log("=== Generate Script Request ===");
+    console.log("Body:", req.body);
+    
+    const { contentIdea, context } = req.body;
+
+    if (!contentIdea || !context) {
+      res.status(400).json({ error: "Content idea and context are required" });
+      return;
+    }
+
+    console.log("Calling Grok API for script generation");
+    const script = await generateScript(contentIdea, context);
+    console.log("Generated script");
+    
+    res.json({ script });
+  } catch (error) {
+    console.error("=== Generate Script Error ===");
+    console.error("Error:", error);
+    if (error instanceof GrokApiError) {
+      console.error("Grok API Error:", {
+        status: error.status,
+        body: error.body,
+      });
+    }
+    next(error);
+  }
+});
+
+// Save content idea
+app.post("/api/content-ideas", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log('=== Save Content Idea ===');
+    console.log('Prisma client:', typeof prisma);
+    console.log('Prisma.contentIdea:', typeof prisma?.contentIdea);
+    
+    const userId = (req as any).user.userId;
+    const { title, concept, format, hook, structure, caption, hashtags, industry, goal, freeInput } = req.body;
+
+    const contentIdea = await prisma.contentIdea.create({
+      data: {
+        userId,
+        title,
+        concept,
+        format,
+        hook,
+        structure,
+        caption,
+        hashtags,
+        industry,
+        goal,
+        freeInput,
+      },
+    });
+
+    res.json({ contentIdea });
+  } catch (error) {
+    console.error('Error saving content idea:', error);
+    next(error);
+  }
+});
+
+// Get all content ideas for user
+app.get("/api/content-ideas", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    const contentIdeas = await prisma.contentIdea.findMany({
+      where: { userId },
+      include: {
+        scripts: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ contentIdeas });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete content idea
+app.delete("/api/content-ideas/:id", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+    const ideaId = parseInt(req.params.id);
+
+    // Verify ownership
+    const idea = await prisma.contentIdea.findFirst({
+      where: { id: ideaId, userId },
+    });
+
+    if (!idea) {
+      res.status(404).json({ error: "Content idea not found" });
+      return;
+    }
+
+    await prisma.contentIdea.delete({
+      where: { id: ideaId },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Save content script
+app.post("/api/content-scripts", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log('=== Save Content Script ===');
+    const userId = (req as any).user.userId;
+    console.log('User ID:', userId);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    const { 
+      contentIdeaId, 
+      videoTitle, 
+      objective, 
+      timeline, 
+      fullScript, 
+      shootingInstructions, 
+      telops, 
+      captionText, 
+      hashtags, 
+      thumbnailIdea, 
+      estimatedDuration, 
+      whyItWorks 
+    } = req.body;
+
+    console.log('Content Idea ID:', contentIdeaId);
+
+    // Verify ownership of content idea
+    const idea = await prisma.contentIdea.findFirst({
+      where: { id: contentIdeaId, userId },
+    });
+
+    console.log('Found idea:', idea ? 'Yes' : 'No');
+
+    if (!idea) {
+      res.status(404).json({ error: "Content idea not found" });
+      return;
+    }
+
+    console.log('Creating script...');
+    const script = await prisma.contentScript.create({
+      data: {
+        contentIdeaId,
+        videoTitle,
+        objective,
+        timeline,
+        fullScript,
+        shootingInstructions,
+        telops,
+        captionText,
+        hashtags,
+        thumbnailIdea,
+        estimatedDuration,
+        whyItWorks,
+      },
+    });
+
+    console.log('Script created successfully:', script.id);
+    console.log('Script created successfully:', script.id);
+    res.json({ script });
+  } catch (error) {
+    console.error('=== Save Script Error ===');
+    console.error('Error:', error);
+    next(error);
+  }
+});
+
+// Get Instagram trends
+app.get("/api/instagram/trends", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    // Get Instagram connection
+    const connection = await prisma.metaConnection.findFirst({
+      where: { userId },
+    });
+
+    if (!connection || !connection.igUserId || !connection.pageAccessToken) {
+      res.status(404).json({ error: "Instagram not connected" });
+      return;
+    }
+
+    // Analyze trends
+    const trends = await analyzeInstagramTrends(
+      connection.igUserId,
+      connection.pageAccessToken
+    );
+
+    res.json(trends);
+  } catch (error) {
+    console.error('=== Instagram Trends Error ===');
+    console.error('Error:', error);
+    next(error);
+  }
+});
+
+// Get TikTok user data
+app.get("/api/tiktok/user", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  console.log("=== TikTok User Endpoint Called ===");
+  try {
+    const userId = (req as any).user.userId;
+    console.log("TikTok user endpoint - userId:", userId);
+
+    // Get TikTok connection
+    const connection = await prisma.tikTokConnection.findFirst({
+      where: { userId },
+    });
+    console.log("TikTok connection found:", !!connection);
+
+    if (!connection || !connection.accessToken) {
+      console.log("TikTok not connected - returning 404");
+      res.status(404).json({ error: "TikTok not connected" });
+      return;
+    }
+
+    console.log("Calling TikTok getUserInfo...");
+    // Get user info
+    const userInfo = await getUserInfo(connection.accessToken);
+    console.log("TikTok userInfo result:", userInfo);
+
+    res.json(userInfo);
+  } catch (error) {
+    console.error('=== TikTok User Error ===');
+    console.error('Error:', error);
+    if (error instanceof TikTokApiError) {
+      console.error('TikTok API Error:', {
+        status: error.status,
+        body: error.body,
+      });
+    }
+    next(error);
+  }
+});
+
+// Get TikTok videos
+app.get("/api/tiktok/videos", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    // Get TikTok connection
+    const connection = await prisma.tikTokConnection.findFirst({
+      where: { userId },
+    });
+
+    if (!connection || !connection.accessToken) {
+      res.status(404).json({ error: "TikTok not connected" });
+      return;
+    }
+
+    // Get video list
+    const videos = await getVideoList(connection.accessToken, {
+      max_count: 20,
+    });
+
+    res.json(videos);
+  } catch (error) {
+    console.error('=== TikTok Videos Error ===');
+    console.error('Error:', error);
+    if (error instanceof TikTokApiError) {
+      console.error('TikTok API Error:', {
+        status: error.status,
+        body: error.body,
+      });
+    }
+    next(error);
+  }
+});
+
+// Get industry trends (Grok API)
+app.get("/api/trends/analyze", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { industry, platform } = req.query;
+
+    if (!industry) {
+      res.status(400).json({ error: "Industry parameter is required" });
+      return;
+    }
+
+    const platformValue = platform === 'instagram' || platform === 'tiktok' ? platform : 'both';
+
+    console.log('=== Analyze Trends Request ===');
+    console.log('Industry:', industry);
+    console.log('Platform:', platformValue);
+
+    const trends = await analyzeTrends(industry as string, platformValue);
+
+    res.json(trends);
+  } catch (error) {
+    console.error('=== Analyze Trends Error ===');
+    console.error('Error:', error);
+    if (error instanceof GrokApiError) {
+      console.error('Grok API Error:', {
+        status: error.status,
+        body: error.body,
+      });
+    }
+    next(error);
+  }
+});
+
+// Generate insight report
+app.post("/api/report/generate", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { platform } = req.body as { platform: 'instagram' | 'tiktok' };
+
+    if (!platform || !['instagram', 'tiktok'].includes(platform)) {
+      res.status(400).json({ error: "Invalid platform. Must be 'instagram' or 'tiktok'" });
+      return;
+    }
+
+    console.log(`=== Generating ${platform} report for user ${userId} ===`);
+
+    let reportData: Parameters<typeof generateInsightReport>[1] = {};
+
+    if (platform === 'instagram') {
+      // Get Instagram connection (MetaConnection doesn't have userId, get the latest one)
+      const metaConnection = await prisma.metaConnection.findFirst({
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!metaConnection || !metaConnection.accessToken || !metaConnection.igUserId) {
+        res.status(404).json({ error: "Instagram not connected" });
+        return;
+      }
+
+      // Fetch Instagram data using pageAccessToken (required for insights)
+      const accessToken = metaConnection.pageAccessToken || metaConnection.accessToken;
+      const now = Math.floor(Date.now() / 1000);
+      const since = now - 28 * 24 * 60 * 60; // 28 days ago (for better follower trend)
+
+      let latestFollowers = 0;
+      let followersGrowth = 0;
+      let reach = 0;
+      let profileViews = 0;
+      let websiteClicks = 0;
+      let topPosts: Array<{ caption?: string; likeCount: number; commentCount: number; mediaType?: string }> = [];
+
+      // Get basic account info (followers_count is here, not in insights)
+      try {
+        const accountInfo = await graphFetch<{ followers_count?: number; media_count?: number }>(
+          `${metaConnection.igUserId}`,
+          {
+            access_token: accessToken,
+            fields: 'followers_count,media_count',
+          }
+        );
+        latestFollowers = accountInfo.followers_count || 0;
+        console.log(`Account info - Followers: ${latestFollowers}`);
+      } catch (error) {
+        console.error("Error fetching account info:", error);
+      }
+
+      // Get follower count trend from insights (for growth calculation)
+      try {
+        const followerData = await graphFetch<{ data?: Array<{ name: string; values?: Array<{ value: number; end_time: string }> }> }>(
+          `${metaConnection.igUserId}/insights`,
+          {
+            access_token: accessToken,
+            metric: 'follower_count',
+            period: 'day',
+            since: String(since),
+            until: String(now),
+          }
+        );
+        const followerValues = followerData.data?.[0]?.values || [];
+        if (followerValues.length > 0) {
+          const earliestFollowers = followerValues[0]?.value || 0;
+          const latestFromInsights = followerValues[followerValues.length - 1]?.value || 0;
+          // Use insights value if account info failed
+          if (latestFollowers === 0) latestFollowers = latestFromInsights;
+          followersGrowth = latestFromInsights - earliestFollowers;
+        }
+        console.log(`Follower trend - Growth: ${followersGrowth}`);
+      } catch (error) {
+        console.error("Error fetching follower count insights:", error);
+      }
+
+      // Get reach (sum of daily values)
+      try {
+        const reachData = await graphFetch<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
+          `${metaConnection.igUserId}/insights`,
+          {
+            access_token: accessToken,
+            metric: 'reach',
+            period: 'day',
+            since: String(since),
+            until: String(now),
+          }
+        );
+        const reachValues = reachData.data?.[0]?.values || [];
+        reach = reachValues.reduce((sum, v) => sum + (v.value || 0), 0);
+        console.log(`Reach: ${reach}`);
+      } catch (error) {
+        console.error("Error fetching reach:", error);
+      }
+
+      // Get profile views (sum of daily values)
+      try {
+        const profileViewsData = await graphFetch<{ data?: Array<{ name: string; total_value?: { value: number }; values?: Array<{ value: number }> }> }>(
+          `${metaConnection.igUserId}/insights`,
+          {
+            access_token: accessToken,
+            metric: 'profile_views',
+            period: 'day',
+            since: String(since),
+            until: String(now),
+            metric_type: 'total_value',
+          }
+        );
+        // Try total_value first, then sum of values
+        profileViews = profileViewsData.data?.[0]?.total_value?.value || 
+          profileViewsData.data?.[0]?.values?.reduce((sum, v) => sum + (v.value || 0), 0) || 0;
+        console.log(`Profile views: ${profileViews}`);
+      } catch (error) {
+        console.error("Error fetching profile views:", error);
+      }
+
+      // Get website clicks (sum of daily values)
+      try {
+        const websiteClicksData = await graphFetch<{ data?: Array<{ name: string; total_value?: { value: number }; values?: Array<{ value: number }> }> }>(
+          `${metaConnection.igUserId}/insights`,
+          {
+            access_token: accessToken,
+            metric: 'website_clicks',
+            period: 'day',
+            since: String(since),
+            until: String(now),
+            metric_type: 'total_value',
+          }
+        );
+        // Try total_value first, then sum of values
+        websiteClicks = websiteClicksData.data?.[0]?.total_value?.value ||
+          websiteClicksData.data?.[0]?.values?.reduce((sum, v) => sum + (v.value || 0), 0) || 0;
+        console.log(`Website clicks: ${websiteClicks}`);
+      } catch (error) {
+        console.error("Error fetching website clicks:", error);
+      }
+
+      try {
+        // Get recent media
+        const mediaData = await graphFetch<{ data?: Array<{ id: string; caption?: string; like_count?: number; comments_count?: number; media_type?: string }> }>(
+          `${metaConnection.igUserId}/media`,
+          {
+            access_token: accessToken,
+            fields: 'id,caption,like_count,comments_count,media_type',
+            limit: '10',
+          }
+        );
+
+        topPosts = mediaData.data?.map(post => ({
+          caption: post.caption,
+          likeCount: post.like_count || 0,
+          commentCount: post.comments_count || 0,
+          mediaType: post.media_type,
+        })) || [];
+        console.log(`Top posts fetched: ${topPosts.length}`);
+      } catch (error) {
+        console.error("Error fetching media:", error);
+      }
+
+      // Calculate engagement rate
+      const totalEngagement = topPosts.reduce((sum, post) => sum + post.likeCount + post.commentCount, 0);
+      const engagementRate = topPosts.length > 0 && latestFollowers > 0
+        ? (totalEngagement / topPosts.length / latestFollowers) * 100
+        : 0;
+
+      console.log(`Report data summary - Followers: ${latestFollowers}, Growth: ${followersGrowth}, Reach: ${reach}, ProfileViews: ${profileViews}, EngagementRate: ${engagementRate.toFixed(2)}%`);
+
+      reportData = {
+        followers: latestFollowers,
+        followersGrowth,
+        reach,
+        profileViews,
+        websiteClicks,
+        engagementRate,
+        topPosts,
+      };
+    } else {
+      // Get TikTok connection
+      const tikTokConnection = await prisma.tikTokConnection.findFirst({
+        where: { userId },
+      });
+
+      if (!tikTokConnection || !tikTokConnection.accessToken) {
+        res.status(404).json({ error: "TikTok not connected" });
+        return;
+      }
+
+      try {
+        // Get user info
+        const userInfo = await getUserInfo(tikTokConnection.accessToken);
+        
+        // Get videos
+        const videosData = await getVideoList(tikTokConnection.accessToken, { max_count: 20 });
+
+        reportData = {
+          followers: userInfo?.follower_count,
+          followingCount: userInfo?.following_count,
+          likesCount: userInfo?.likes_count,
+          videoCount: userInfo?.video_count,
+          videos: videosData?.videos?.map(v => ({
+            title: v.title || v.video_description,
+            viewCount: v.view_count,
+            likeCount: v.like_count,
+            commentCount: v.comment_count,
+            shareCount: v.share_count,
+          })),
+        };
+      } catch (error) {
+        console.error("Error fetching TikTok data for report:", error);
+        // Continue with partial data
+      }
+    }
+
+    // Generate report using Grok API
+    const report = await generateInsightReport(platform, reportData);
+
+    console.log(`=== Report generated successfully ===`);
+    res.json(report);
+  } catch (error) {
+    console.error("=== Report Generation Error ===");
+    console.error(error);
+    if (error instanceof GrokApiError) {
+      res.status(error.status).json({ error: error.message, details: error.body });
+      return;
+    }
+    next(error);
+  }
+});
+
+// Delete user account and all associated data
+app.delete("/api/user/delete", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated." });
+      return;
+    }
+
+    // Delete all user data in order (respecting foreign key constraints)
+    // 1. Delete ContentScripts (via cascade from ContentIdea)
+    // 2. Delete ContentIdeas
+    await prisma.contentIdea.deleteMany({
+      where: { userId },
+    });
+
+    // 3. Delete TikTok connections
+    await prisma.tikTokConnection.deleteMany({
+      where: { userId },
+    });
+
+    // 4. Delete Meta (Instagram) connections
+    await prisma.metaConnection.deleteMany({
+      where: { userId },
+    });
+
+    // 5. Delete the user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    console.log(`User ${userId} and all associated data deleted successfully`);
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Your account and all associated data have been deleted." 
+    });
+  } catch (error) {
+    console.error("Error deleting user data:", error);
+    next(error);
+  }
+});
+
+// Get user data summary (for data deletion page)
+app.get("/api/user/data-summary", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated." });
+      return;
+    }
+
+    // Get user info
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true, createdAt: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    // Count associated data
+    const [metaConnections, tiktokConnections, contentIdeas, contentScripts] = await Promise.all([
+      prisma.metaConnection.count({ where: { userId } }),
+      prisma.tikTokConnection.count({ where: { userId } }),
+      prisma.contentIdea.count({ where: { userId } }),
+      prisma.contentScript.count({
+        where: { contentIdea: { userId } },
+      }),
+    ]);
+
+    res.json({
+      user: {
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt,
+      },
+      dataCounts: {
+        metaConnections,
+        tiktokConnections,
+        contentIdeas,
+        contentScripts,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update user profile (company name)
+app.put("/api/user/profile", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { companyName } = req.body;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { companyName: companyName || null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        companyName: true,
+      },
+    });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get user profile
+app.get("/api/user/profile", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        companyName: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 404 handler - must be after all routes
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found." });
 });
 
+// Error handler - must be last
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (res.headersSent) {
     console.error("Server error after headers sent", error);

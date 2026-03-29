@@ -1,72 +1,131 @@
-
 import { useState } from 'react';
 
-interface InsightData {
-  followers: string;
-  impressions: string;
-  engagementRate: string;
-  comments: string;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
+interface ReportData {
+  title: string;
+  generatedAt: string;
+  executiveSummary: string;
+  keyMetrics: Array<{
+    label: string;
+    value: string;
+    trend: 'up' | 'down' | 'stable';
+    analysis: string;
+  }>;
+  sections: Array<{
+    title: string;
+    icon: string;
+    content: string;
+  }>;
+  recommendations: string[];
+  conclusion: string;
 }
 
-interface WhitepaperSectionProps {
-  insights: InsightData;
+interface SavedReport extends ReportData {
+  id: string;
+  platform: 'instagram' | 'tiktok';
+  savedAt: string;
 }
 
-export default function WhitepaperSection({ insights }: WhitepaperSectionProps) {
+export default function WhitepaperSection() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showWhitepaper, setShowWhitepaper] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<'instagram' | 'tiktok'>('instagram');
   const [selectedFormat, setSelectedFormat] = useState<'summary' | 'detailed'>('summary');
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>(() => {
+    const saved = localStorage.getItem('whitepaper_reports');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showSavedList, setShowSavedList] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setShowWhitepaper(true);
-    }, 2000);
+  const handleGenerateClick = () => {
+    setShowConfirmModal(true);
   };
 
-  const whitepaperContent = {
-    title: 'SNSパフォーマンス分析レポート',
-    generatedAt: new Date().toLocaleDateString('ja-JP', { 
-      year: 'numeric', 
-      month: 'long', 
+  const handleConfirmGenerate = () => {
+    setShowConfirmModal(false);
+    handleGenerate();
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        setError('ログインが必要です');
+        setIsGenerating(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/report/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ platform: selectedPlatform }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'レポート生成に失敗しました');
+      }
+
+      const data = await response.json();
+      setReport(data);
+      setShowWhitepaper(true);
+    } catch (err) {
+      console.error('Failed to generate report:', err);
+      setError(err instanceof Error ? err.message : 'レポート生成に失敗しました');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }),
-    sections: [
-      {
-        title: 'エグゼクティブサマリー',
-        icon: 'ri-file-list-3-line',
-        content: `現在のSNS運用状況は非常に良好です。フォロワー数${insights.followers}を達成し、インプレッション${insights.impressions}を記録しています。エンゲージメント率${insights.engagementRate}は業界平均の3.5%を上回っており、コンテンツ戦略が効果的に機能していることを示しています。`
-      },
-      {
-        title: 'オーディエンス分析',
-        icon: 'ri-group-line',
-        content: `総フォロワー数${insights.followers}のうち、アクティブユーザーは約78%を占めています。主要なオーディエンス層は25-34歳の女性で、全体の42%を構成しています。地域別では東京都が最も多く、次いで大阪府、神奈川県となっています。`
-      },
-      {
-        title: 'エンゲージメント分析',
-        icon: 'ri-heart-pulse-line',
-        content: `エンゲージメント率${insights.engagementRate}は前月比+2.1%の成長を示しています。コメント数${insights.comments}件のうち、ポジティブな反応が85%を占めています。最もエンゲージメントが高い投稿時間帯は平日の19:00-21:00です。`
-      },
-      {
-        title: 'リーチ＆インプレッション',
-        icon: 'ri-eye-line',
-        content: `総インプレッション${insights.impressions}を達成し、前月比+18.2%の成長を記録しました。オーガニックリーチは全体の67%を占め、ハッシュタグ経由の流入が23%増加しています。リール動画のリーチは通常投稿の3.2倍を記録しています。`
-      },
-      {
-        title: '推奨アクション',
-        icon: 'ri-lightbulb-line',
-        content: `1. リール動画の投稿頻度を週3回から週5回に増加させることを推奨します。\n2. 19:00-21:00の投稿を優先し、エンゲージメントを最大化してください。\n3. ユーザー生成コンテンツ（UGC）キャンペーンの実施を検討してください。\n4. コメントへの返信率を現在の65%から80%以上に向上させることで、コミュニティ形成を強化できます。`
-      }
-    ],
-    keyMetrics: [
-      { label: 'フォロワー成長率', value: '+12.5%', trend: 'up' },
-      { label: 'エンゲージメント率', value: insights.engagementRate, trend: 'up' },
-      { label: 'リーチ率', value: '68.3%', trend: 'up' },
-      { label: 'コンバージョン率', value: '2.4%', trend: 'stable' }
-    ]
+    });
+  };
+
+  const handleSaveReport = () => {
+    if (!report) return;
+    
+    const savedReport: SavedReport = {
+      ...report,
+      id: Date.now().toString(),
+      platform: selectedPlatform,
+      savedAt: new Date().toISOString(),
+    };
+    
+    const updatedReports = [savedReport, ...savedReports];
+    setSavedReports(updatedReports);
+    localStorage.setItem('whitepaper_reports', JSON.stringify(updatedReports));
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
+  const handleLoadReport = (savedReport: SavedReport) => {
+    setReport(savedReport);
+    setSelectedPlatform(savedReport.platform);
+    setShowWhitepaper(true);
+    setShowSavedList(false);
+  };
+
+  const handleDeleteReport = (id: string) => {
+    const updatedReports = savedReports.filter(r => r.id !== id);
+    setSavedReports(updatedReports);
+    localStorage.setItem('whitepaper_reports', JSON.stringify(updatedReports));
   };
 
   return (
@@ -83,9 +142,48 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
             </div>
           </div>
           
-          {!showWhitepaper && (
+          <div className="flex items-center space-x-3">
+            {/* Saved reports button */}
             <button
-              onClick={handleGenerate}
+              onClick={() => setShowSavedList(!showSavedList)}
+              className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                showSavedList
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <i className="ri-folder-line"></i>
+              <span>保存済み ({savedReports.length})</span>
+            </button>
+            
+            {/* Platform selector */}
+            <div className="flex items-center space-x-1.5 bg-gray-50 rounded-lg p-1">
+              <button
+                onClick={() => setSelectedPlatform('instagram')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  selectedPlatform === 'instagram'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <i className="ri-instagram-line"></i>
+                <span>Instagram</span>
+              </button>
+              <button
+                onClick={() => setSelectedPlatform('tiktok')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  selectedPlatform === 'tiktok'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <i className="ri-tiktok-line"></i>
+                <span>TikTok</span>
+              </button>
+            </div>
+            
+            <button
+              onClick={handleGenerateClick}
               disabled={isGenerating}
               className="flex items-center space-x-2 px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-all disabled:opacity-70 cursor-pointer whitespace-nowrap"
             >
@@ -101,20 +199,64 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
                 </>
               )}
             </button>
-          )}
+          </div>
         </div>
       </div>
 
-      {showWhitepaper && (
+      {/* Saved Reports List */}
+      {showSavedList && (
+        <div className="p-6 border-b border-gray-50 bg-gray-50">
+          <h4 className="text-xs font-semibold text-gray-700 mb-3">保存済みレポート</h4>
+          {savedReports.length === 0 ? (
+            <p className="text-xs text-gray-400">保存されたレポートはありません</p>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {savedReports.map((savedReport) => (
+                <div
+                  key={savedReport.id}
+                  className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-100"
+                >
+                  <div className="flex items-center space-x-3">
+                    <i className={savedReport.platform === 'instagram' ? 'ri-instagram-line text-pink-500' : 'ri-tiktok-line text-gray-900'}></i>
+                    <div>
+                      <p className="text-xs font-medium text-gray-700">{savedReport.title}</p>
+                      <p className="text-[10px] text-gray-400">保存日時: {formatDate(savedReport.savedAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleLoadReport(savedReport)}
+                      className="px-2 py-1 text-[10px] text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-all cursor-pointer"
+                    >
+                      <i className="ri-eye-line mr-1"></i>表示
+                    </button>
+                    <button
+                      onClick={() => handleDeleteReport(savedReport.id)}
+                      className="px-2 py-1 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-all cursor-pointer"
+                    >
+                      <i className="ri-delete-bin-line"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showWhitepaper && report && (
         <div className="p-6">
           {/* Header */}
           <div className="mb-6 pb-6 border-b border-gray-50">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-1">{whitepaperContent.title}</h3>
+                <div className="flex items-center space-x-2 mb-1">
+                  <i className={selectedPlatform === 'instagram' ? 'ri-instagram-line text-pink-500' : 'ri-tiktok-line text-gray-900'}></i>
+                  <h3 className="text-lg font-semibold text-gray-800">{report.title}</h3>
+                </div>
                 <p className="text-[11px] text-gray-400">
                   <i className="ri-time-line mr-1"></i>
-                  生成日時: {whitepaperContent.generatedAt}
+                  生成日時: {formatDate(report.generatedAt)}
                 </p>
               </div>
               <div className="flex items-center space-x-1.5 bg-gray-50 rounded-lg p-1">
@@ -142,9 +284,15 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
             </div>
           </div>
 
-          {/* Key Metrics Summary */}
+          {/* Executive Summary */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h4 className="text-xs font-semibold text-gray-700 mb-2">エグゼクティブサマリー</h4>
+            <p className="text-sm text-gray-600 leading-relaxed">{report.executiveSummary}</p>
+          </div>
+
+          {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {whitepaperContent.keyMetrics.map((metric, index) => (
+            {report.keyMetrics.map((metric, index) => (
               <div key={index} className="bg-gray-50 rounded-lg p-4">
                 <p className="text-[10px] text-gray-400 mb-1">{metric.label}</p>
                 <div className="flex items-center space-x-2">
@@ -155,13 +303,16 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
                     'ri-subtract-line text-gray-300'
                   }`}></i>
                 </div>
+                {selectedFormat === 'detailed' && (
+                  <p className="text-[10px] text-gray-400 mt-2">{metric.analysis}</p>
+                )}
               </div>
             ))}
           </div>
 
           {/* Content Sections */}
-          <div className="space-y-3">
-            {whitepaperContent.sections.map((section, index) => (
+          <div className="space-y-3 mb-6">
+            {report.sections.map((section, index) => (
               <div 
                 key={index} 
                 className={`border border-gray-50 rounded-lg overflow-hidden ${
@@ -185,37 +336,90 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
             ))}
           </div>
 
+          {/* Recommendations */}
+          {selectedFormat === 'detailed' && (
+            <div className="border border-gray-50 rounded-lg overflow-hidden mb-6">
+              <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-50">
+                <div className="flex items-center space-x-2">
+                  <div className="w-5 h-5 rounded bg-white flex items-center justify-center">
+                    <i className="ri-lightbulb-line text-gray-400 text-xs"></i>
+                  </div>
+                  <h4 className="text-xs font-semibold text-gray-700">推奨アクション</h4>
+                </div>
+              </div>
+              <div className="p-4">
+                <ul className="space-y-2">
+                  {report.recommendations.map((rec, index) => (
+                    <li key={index} className="flex items-start space-x-2 text-xs text-gray-500">
+                      <span className="text-gray-400">{index + 1}.</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Conclusion */}
+          {selectedFormat === 'detailed' && (
+            <div className="bg-gray-900 rounded-lg p-4 mb-6">
+              <h4 className="text-xs font-semibold text-white mb-2">結論</h4>
+              <p className="text-xs text-gray-300 leading-relaxed">{report.conclusion}</p>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="mt-6 pt-5 border-t border-gray-50 flex items-center justify-between">
+          <div className="pt-5 border-t border-gray-50 flex items-center justify-between">
             <button
-              onClick={() => setShowWhitepaper(false)}
+              onClick={() => { setShowWhitepaper(false); setReport(null); }}
               className="flex items-center space-x-1.5 px-3 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-refresh-line"></i>
-              <span>再生成</span>
+              <i className="ri-close-line"></i>
+              <span>閉じる</span>
             </button>
             <div className="flex items-center space-x-2">
-              <button className="flex items-center space-x-1.5 px-3 py-2 bg-gray-50 text-gray-600 text-xs rounded-lg hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap">
+              <button
+                onClick={handleSaveReport}
+                className={`flex items-center space-x-1.5 px-3 py-2 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  saveSuccess
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <i className={saveSuccess ? 'ri-check-line' : 'ri-save-line'}></i>
+                <span>{saveSuccess ? '保存しました' : '保存'}</span>
+              </button>
+              <button 
+                onClick={() => navigator.clipboard.writeText(JSON.stringify(report, null, 2))}
+                className="flex items-center space-x-1.5 px-3 py-2 bg-gray-50 text-gray-600 text-xs rounded-lg hover:bg-gray-100 transition-all cursor-pointer whitespace-nowrap"
+              >
                 <i className="ri-file-copy-line"></i>
                 <span>コピー</span>
-              </button>
-              <button className="flex items-center space-x-1.5 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 transition-all cursor-pointer whitespace-nowrap">
-                <i className="ri-download-line"></i>
-                <span>PDFダウンロード</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {!showWhitepaper && !isGenerating && (
+      {error && (
+        <div className="p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <i className="ri-error-warning-line text-red-500"></i>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!showWhitepaper && !isGenerating && !error && (
         <div className="p-8 text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
             <i className="ri-file-chart-line text-2xl text-gray-300"></i>
           </div>
           <h3 className="text-sm font-semibold text-gray-700 mb-1.5">インサイトレポートを生成</h3>
           <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
-            現在のSNSパフォーマンスデータをもとに、AIが詳細な分析レポートを自動生成します。
+            InstagramまたはTikTokを選択し、AIが詳細な分析レポートを自動生成します。
           </p>
         </div>
       )}
@@ -227,10 +431,60 @@ export default function WhitepaperSection({ insights }: WhitepaperSectionProps) 
           </div>
           <h3 className="text-sm font-semibold text-gray-700 mb-1.5">レポートを生成中...</h3>
           <p className="text-xs text-gray-400">
-            AIがデータを分析しています。しばらくお待ちください。
+            AIが{selectedPlatform === 'instagram' ? 'Instagram' : 'TikTok'}データを分析しています。
           </p>
           <div className="mt-4 w-40 mx-auto bg-gray-100 rounded-full h-1 overflow-hidden">
             <div className="bg-gray-400 h-full rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+                <i className="ri-information-line text-2xl text-amber-600"></i>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">外部AIサービスの利用について</h3>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-4 mb-5">
+              <p className="text-sm text-gray-700 leading-relaxed">
+                レポート生成には外部AIサービス（Grok）を使用します。
+                以下のデータがAIサービスに送信されます：
+              </p>
+              <ul className="mt-3 space-y-1.5 text-sm text-gray-600">
+                <li className="flex items-start">
+                  <i className="ri-checkbox-circle-line text-gray-400 mr-2 mt-0.5"></i>
+                  <span>{selectedPlatform === 'instagram' ? 'Instagram' : 'TikTok'}のインサイトデータ</span>
+                </li>
+                <li className="flex items-start">
+                  <i className="ri-checkbox-circle-line text-gray-400 mr-2 mt-0.5"></i>
+                  <span>フォロワー数、エンゲージメント等の統計情報</span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-5 text-center">
+              送信されたデータはレポート生成のみに使用され、AIモデルの学習には利用されません。なお、サービス品質向上のために短期間ログとして保持される場合があります。
+            </p>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleConfirmGenerate}
+                className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
+              >
+                OK・生成開始
+              </button>
+            </div>
           </div>
         </div>
       )}

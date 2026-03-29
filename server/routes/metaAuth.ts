@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import type { JwtPayload } from "jsonwebtoken";
 import type { PrismaClient } from "@prisma/client";
 import {
   ensureMetaConnectionHasIgUser,
@@ -12,12 +14,11 @@ const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI?.trim();
 const META_CONFIG_ID = process.env.META_CONFIG_ID?.trim() || "";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const SCOPE = [
-  "instagram_business_basic",
-  "instagram_manage_insights",
-  "instagram_business_manage_messages",
-  "instagram_manage_comments",
+  "email",
+  "public_profile",
 ].join(",");
 
 let prismaClient: PrismaClient | null = null;
@@ -44,7 +45,7 @@ const resolveMetaRedirectUri = (req: Request): string => {
 const ensureMetaRedirectConfig = (req: Request, res: Response): boolean => {
   const missing: string[] = [];
   if (!META_APP_ID) missing.push("META_APP_ID");
-  if (!META_CONFIG_ID) missing.push("META_CONFIG_ID");
+  // META_CONFIG_IDはオプション
   if (missing.length > 0) {
     res
       .status(500)
@@ -117,6 +118,9 @@ export function metaLogin(req: Request, res: Response) {
     return;
   }
 
+  // Get JWT token from query parameter
+  const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+
   const redirectUri = resolveMetaRedirectUri(req);
   const params = new URLSearchParams({
     client_id: META_APP_ID!,
@@ -124,16 +128,46 @@ export function metaLogin(req: Request, res: Response) {
     response_type: "code",
   });
 
+  // スコープを常に明示的に指定（Config IDの有無に関わらず）
+  const requiredScopes = [
+    "email",
+    "public_profile", 
+    "pages_show_list",
+    "pages_read_engagement",
+    "pages_read_user_content",
+    "instagram_basic",
+    "instagram_manage_insights",
+    "business_management"
+  ].join(",");
+  
+  params.set("scope", requiredScopes);
+
   if (META_CONFIG_ID) {
     params.set("config_id", META_CONFIG_ID);
   }
 
-  const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
-  if (state) {
-    params.set("state", state);
+  // Pass token in state for callback to retrieve userId
+  const stateObj: Record<string, string> = {};
+  const originalState = typeof req.query.state === "string" ? req.query.state.trim() : "";
+  if (originalState) {
+    stateObj.originalState = originalState;
+  }
+  if (token) {
+    stateObj.token = token;
+  }
+  
+  if (Object.keys(stateObj).length > 0) {
+    params.set("state", JSON.stringify(stateObj));
   }
 
-  res.redirect(`${metaAuthUrl}?${params.toString()}`);
+  const authUrl = `${metaAuthUrl}?${params.toString()}`;
+  
+  // デバッグログ
+  console.log(`[metaLogin] Auth URL: ${authUrl}`);
+  console.log(`[metaLogin] Scopes requested: ${requiredScopes}`);
+  console.log(`[metaLogin] META_CONFIG_ID: ${META_CONFIG_ID || 'not set'}`);
+
+  res.redirect(authUrl);
 }
 
 const getPrismaClient = (): PrismaClient => {
@@ -148,6 +182,11 @@ export async function metaCallback(
   res: Response,
   next: NextFunction,
 ) {
+  // デバッグログ用
+  const logDebug = (msg: string) => {
+    console.log(`[metaCallback] ${msg}`);
+  };
+
   try {
     if (!ensureMetaRedirectConfig(req, res) || !ensureMetaSecret(res)) {
       return;
@@ -160,6 +199,8 @@ export async function metaCallback(
     }
 
     const redirectUri = resolveMetaRedirectUri(req);
+    logDebug(`Redirect URI: ${redirectUri}`);
+    logDebug(`Code received: ${code.substring(0, 20)}...`);
 
     const tokenParams = new URLSearchParams({
       client_id: META_APP_ID!,
@@ -169,9 +210,15 @@ export async function metaCallback(
       grant_type: "authorization_code",
     });
 
+    logDebug(`Token exchange URL: ${metaGraphBase}/oauth/access_token`);
     const tokenResponse = await fetch(`${metaGraphBase}/oauth/access_token?${tokenParams.toString()}`);
     const tokenPayload = (await tokenResponse.json()) as Record<string, unknown>;
+    
+    logDebug(`Token response status: ${tokenResponse.status}`);
+    logDebug(`Token payload keys: ${Object.keys(tokenPayload).join(', ')}`);
+    
     if (!tokenResponse.ok) {
+      logDebug(`Token exchange failed: ${JSON.stringify(tokenPayload)}`);
       res.status(502).json({
         error: "Failed to exchange Meta code for a token.",
         details: tokenPayload,
@@ -186,6 +233,19 @@ export async function metaCallback(
         details: tokenPayload,
       });
       return;
+    }
+
+    logDebug(`Access token received: ${accessToken.substring(0, 30)}...`);
+    logDebug(`Token length: ${accessToken.length}`);
+
+    // トークンのデバッグ情報を取得
+    try {
+      const debugUrl = `${metaGraphBase}/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`;
+      const debugResponse = await fetch(debugUrl);
+      const debugData = await debugResponse.json();
+      logDebug(`Token debug info: ${JSON.stringify(debugData, null, 2)}`);
+    } catch (debugError) {
+      logDebug(`Failed to get token debug info: ${String(debugError)}`);
     }
 
     const expiresIn =
@@ -221,12 +281,37 @@ export async function metaCallback(
       }
     })();
 
-    const pageLink = await getInstagramPageFromUserToken(accessToken, preferredPageId);
+    // Extract userId from JWT token in state
+    const userId = (() => {
+      const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+      if (!state) return null;
+      try {
+        const parsed = JSON.parse(state) as Record<string, unknown>;
+        const token = typeof parsed.token === "string" ? parsed.token : "";
+        if (!token || !JWT_SECRET) return null;
+        const payload = jwt.verify(token, JWT_SECRET) as JwtPayload & { userId?: number };
+        return payload.userId ?? null;
+      } catch {
+        return null;
+      }
+    })();
+
+    // 既知のページIDをフォールバックとして使用
+    const fallbackPageId = preferredPageId || "1029155523613404";
+    logDebug(`Using fallback page ID: ${fallbackPageId}`);
+    const pageLink = await getInstagramPageFromUserToken(accessToken, fallbackPageId);
 
     const prisma = getPrismaClient();
-    const latestConnection = await prisma.metaConnection.findFirst({
-      orderBy: { createdAt: "desc" },
-    });
+    
+    // Find existing connection for this user (if userId is available)
+    const existingConnection = userId
+      ? await prisma.metaConnection.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        })
+      : await prisma.metaConnection.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
 
     const dataToSave = {
       accessToken,
@@ -234,11 +319,12 @@ export async function metaCallback(
       expiresAt,
       pageId: pageLink.pageId ?? null,
       igUserId: pageLink.igUserId ?? null,
+      userId: userId,
     };
 
-    const connection = latestConnection
+    const connection = existingConnection
       ? await prisma.metaConnection.update({
-          where: { id: latestConnection.id },
+          where: { id: existingConnection.id },
           data: dataToSave,
         })
       : await prisma.metaConnection.create({
@@ -247,7 +333,15 @@ export async function metaCallback(
 
     await ensureMetaConnectionHasIgUser(prisma, connection, pageLink);
 
-    res.redirect("https://localhost:3000/settings?connected=1");
+    // ポップアップを閉じて親ウィンドウに通知するHTMLを返す
+    res.send(renderCallbackPage({
+      status: "success",
+      message: "Instagram連携が完了しました",
+      payload: {
+        pageId: pageLink.pageId,
+        igUserId: pageLink.igUserId,
+      },
+    }));
   } catch (error) {
     next(error);
   }

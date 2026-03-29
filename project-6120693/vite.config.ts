@@ -80,19 +80,23 @@ export default defineConfig({
     },
   },
   server: {
-    host: "buzzinsight.local",
+    host: "0.0.0.0",
     port: 3000,
-    https: {
-      key: fs.readFileSync("./buzzinsight.local-key.pem"),
-      cert: fs.readFileSync("./buzzinsight.local.pem"),
-    },
-    allowedHosts: ["buzzinsight.local"],
+    allowedHosts: ["zshops-shipments-radar-longest.trycloudflare.com", "app.snsinsight.jp"],
     proxy: {
       "/auth/meta/login": {
         target: backendUrl,
         changeOrigin: true,
       },
       "/auth/meta/callback": {
+        target: backendUrl,
+        changeOrigin: true,
+      },
+      "/auth/tiktok/login": {
+        target: backendUrl,
+        changeOrigin: true,
+      },
+      "/auth/tiktok/callback": {
         target: backendUrl,
         changeOrigin: true,
       },
