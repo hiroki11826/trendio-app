@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/u, '');
 
@@ -10,6 +11,7 @@ type LoginPayload = {
 };
 
 export default function Login() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,11 +37,11 @@ export default function Login() {
       const payload = (await response.json().catch(() => ({}))) as LoginPayload;
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? 'ログインに失敗しました。');
+        throw new Error(payload?.error ?? 'Login failed.');
       }
 
       if (!payload?.token) {
-        throw new Error('ログイントークンを受信できませんでした。');
+        throw new Error('Failed to receive login token.');
       }
 
       localStorage.setItem('nekocafe_token', payload.token);
@@ -51,7 +53,7 @@ export default function Login() {
 
       navigate('/dashboard');
     } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'ログインに失敗しました。');
+      setError(loginError instanceof Error ? loginError.message : 'Login failed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -63,18 +65,18 @@ export default function Login() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
             <img 
-              src="https://public.readdy.ai/ai/img_res/b0f1d07c-3416-427c-9f66-d7c330ac0ee4.png" 
-              alt="SNS運用プラットフォーム" 
+              src="/trendio-logo.png" 
+              alt="Trendio" 
               className="h-12 mx-auto mb-4"
             />
-            <h1 className="text-2xl font-bold text-gray-900">おかえりなさい</h1>
-            <p className="text-sm text-gray-500 mt-2">アカウントにログインして続行してください</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('login.title')}</h1>
+            <p className="text-sm text-gray-500 mt-2">{t('login.subtitle')}</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                メールアドレス
+                {t('login.email')}
               </label>
               <input
                 id="email"
@@ -82,14 +84,14 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-sm"
-                placeholder="you@company.com"
+                placeholder={t('login.emailPlaceholder')}
                 required
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                パスワード
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -97,7 +99,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-sm"
-                placeholder="パスワードを入力してください"
+                placeholder={t('login.passwordPlaceholder')}
                 required
               />
             </div>
@@ -110,10 +112,10 @@ export default function Login() {
                   onChange={(event) => setRemember(event.target.checked)}
                   className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
-                <span className="ml-2 text-gray-600">ログイン状態を保持</span>
+                <span className="ml-2 text-gray-600">{t('login.rememberMe')}</span>
               </label>
               <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium whitespace-nowrap">
-                パスワードをお忘れですか？
+                {t('login.forgotPassword')}
               </a>
             </div>
 
@@ -126,10 +128,10 @@ export default function Login() {
                   className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer mt-0.5"
                 />
                 <span className="ml-2 text-gray-600">
-                  <Link to="/terms" className="text-emerald-600 hover:underline">利用規約</Link>
-                  と
-                  <Link to="/privacy" className="text-emerald-600 hover:underline">プライバシーポリシー</Link>
-                  に同意する
+                  {t('login.agreeTerms')}
+                  <Link to="/terms" className="text-emerald-600 hover:underline">{t('login.termsOfService')}</Link>
+                  {t('login.and')}
+                  <Link to="/privacy" className="text-emerald-600 hover:underline">{t('login.privacyPolicy')}</Link>
                 </span>
               </label>
             </div>
@@ -149,15 +151,15 @@ export default function Login() {
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl'
               }`}
             >
-              {isSubmitting ? 'ログイン中…' : 'ログイン'}
+              {isSubmitting ? t('login.submitting') : t('login.submit')}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              アカウントをお持ちでないですか？{' '}
+              {t('login.noAccount')}{' '}
               <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-medium whitespace-nowrap">
-                新規登録はこちら
+                {t('login.register')}
               </Link>
             </p>
           </div>
@@ -165,11 +167,11 @@ export default function Login() {
 
         <div className="mt-8 text-center">
           <div className="flex items-center justify-center space-x-6 text-xs text-gray-500">
-            <Link to="/privacy" className="hover:text-gray-700 whitespace-nowrap">プライバシーポリシー</Link>
+            <Link to="/privacy" className="hover:text-gray-700 whitespace-nowrap">{t('common.privacyPolicy')}</Link>
             <span>•</span>
-            <Link to="/terms" className="hover:text-gray-700 whitespace-nowrap">利用規約</Link>
+            <Link to="/terms" className="hover:text-gray-700 whitespace-nowrap">{t('common.termsOfService')}</Link>
             <span>•</span>
-            <a href="mailto:support@snsinsight.jp" className="hover:text-gray-700 whitespace-nowrap">サポート</a>
+            <a href="mailto:support@trendio.jp" className="hover:text-gray-700 whitespace-nowrap">{t('login.support')}</a>
           </div>
         </div>
       </div>

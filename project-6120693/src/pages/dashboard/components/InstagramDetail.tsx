@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api, ApiError, type InstagramInsightsResponse } from '../../../services/api';
 import FollowerTrendChart from './instagram/FollowerTrendChart';
 import SummaryMetrics from './instagram/SummaryMetrics';
@@ -10,6 +11,7 @@ import RegionBarChart from './instagram/RegionBarChart';
 import PostingHoursChart from './instagram/PostingHoursChart';
 
 export default function InstagramDetail() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [data, setData] = useState<InstagramInsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,6 @@ export default function InstagramDetail() {
     fetchData();
   }, []);
 
-  // 未連携時の表示
   if (!loading && notConnected) {
     return (
       <div className="mb-12">
@@ -47,7 +48,7 @@ export default function InstagramDetail() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-800">Instagram</h2>
-            <p className="text-xs text-gray-400">フォロワー・エンゲージメント・オーディエンス</p>
+            <p className="text-xs text-gray-400">{t('instagram.subtitle')}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-12">
@@ -56,17 +57,17 @@ export default function InstagramDetail() {
               <i className="ri-instagram-line text-3xl text-pink-500"></i>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Instagramアカウントを連携してください
+              {t('instagram.connectPrompt')}
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              アカウントを連携すると、フォロワー推移やエンゲージメント分析などのインサイトデータを確認できます。
+              {t('instagram.connectDesc')}
             </p>
             <button
               onClick={() => navigate('/settings')}
               className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-pink-500 to-orange-400 text-white text-sm font-medium rounded-lg hover:from-pink-600 hover:to-orange-500 transition-all cursor-pointer"
             >
               <i className="ri-link mr-2"></i>
-              設定ページで連携する
+              {t('dashboard.connectOnSettings')}
             </button>
           </div>
         </div>
@@ -83,7 +84,7 @@ export default function InstagramDetail() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-800">Instagram</h2>
-            <p className="text-xs text-gray-400">フォロワー・エンゲージメント・オーディエンス</p>
+            <p className="text-xs text-gray-400">{t('instagram.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -91,35 +92,26 @@ export default function InstagramDetail() {
       {loading && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
           <i className="ri-loader-4-line animate-spin text-3xl text-gray-400 mb-2"></i>
-          <p className="text-sm text-gray-500">データを読み込んでいます...</p>
+          <p className="text-sm text-gray-500">{t('dashboard.loading')}</p>
         </div>
       )}
 
       {!loading && data && (
         <>
-          {/* サマリー指標 */}
           <SummaryMetrics data={data.summary} />
-
-          {/* フォロワー推移グラフ */}
           <div className="mt-5">
             <FollowerTrendChart data={data.followerTrend} />
           </div>
-
-          {/* アクション推移グラフ */}
           <div className="mt-5">
             <ActionTrendChart 
               data={data.actionTrend} 
               summary={data.actionSummary} 
             />
           </div>
-
-          {/* フォロワー層分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
             <GenderBarChart data={data.genderByPeriod} />
             <GenderPieChart data={data.genderRatio} />
           </div>
-
-          {/* 地域 & 投稿時間 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
             <RegionBarChart data={data.regions} />
             <PostingHoursChart data={data.postingHours} />

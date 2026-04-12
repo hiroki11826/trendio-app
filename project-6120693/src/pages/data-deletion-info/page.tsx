@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 
 export default function DataDeletionInfoPage() {
   useEffect(() => {
-    document.title = 'ユーザーデータの削除について | SNSInsight';
+    document.title = 'ユーザーデータの削除について | Trendio';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'SNSInsightにおけるユーザーデータの削除対象と削除方法についてご説明します。');
+      metaDescription.setAttribute('content', 'Trendioにおけるユーザーデータの削除対象と削除方法についてご説明します。');
     }
   }, []);
 
@@ -24,7 +24,7 @@ export default function DataDeletionInfoPage() {
         {/* Introduction */}
         <section className="mb-10">
           <p className="text-gray-700 leading-relaxed">
-            SNSInsight（以下、「当サービス」といいます。）では、ユーザーの皆様がご自身のデータを管理・削除できる機能を提供しています。
+            Trendio（以下、「当サービス」といいます。）では、ユーザーの皆様がご自身のデータを管理・削除できる機能を提供しています。
             本ページでは、削除対象となるデータの種類と、削除方法についてご説明します。
           </p>
         </section>
@@ -101,7 +101,7 @@ export default function DataDeletionInfoPage() {
               </div>
               <div className="pt-1">
                 <p className="text-gray-700">
-                  <a href="https://app.snsinsight.jp/login" className="text-blue-600 hover:underline">SNSInsight</a>にログインします。
+                  <a href="https://app.trendio.jp/login" className="text-blue-600 hover:underline">Trendio</a>にログインします。
                 </p>
               </div>
             </div>
@@ -188,8 +188,8 @@ export default function DataDeletionInfoPage() {
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-sm text-gray-600">
               <span className="font-medium">お問い合わせ先:</span>{' '}
-              <a href="mailto:support@snsinsight.jp" className="text-blue-600 hover:underline">
-                support@snsinsight.jp
+              <a href="mailto:support@trendio.jp" className="text-blue-600 hover:underline">
+                support@trendio.jp
               </a>
             </p>
           </div>
@@ -206,7 +206,7 @@ export default function DataDeletionInfoPage() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-gray-500">
-            © 2026 SNSInsight. All rights reserved.
+            © 2026 Trendio. All rights reserved.
           </p>
         </footer>
       </div>

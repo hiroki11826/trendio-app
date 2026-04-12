@@ -263,8 +263,8 @@ export default function DataDeletionPage() {
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
             データ削除に関するお問い合わせは{' '}
-            <a href="mailto:support@snsinsight.jp" className="text-blue-600 hover:underline">
-              support@snsinsight.jp
+            <a href="mailto:support@trendio.jp" className="text-blue-600 hover:underline">
+              support@trendio.jp
             </a>{' '}
             までご連絡ください。
           </p>

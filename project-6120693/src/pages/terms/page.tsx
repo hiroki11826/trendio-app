@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 
 export default function TermsPage() {
   useEffect(() => {
-    document.title = '利用規約 | SNSInsight';
+    document.title = '利用規約 | Trendio';
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'SNSInsightの利用規約です。サービスのご利用条件について定めています。');
+      metaDescription.setAttribute('content', 'Trendioの利用規約です。サービスのご利用条件について定めています。');
     }
   }, []);
 
@@ -24,7 +24,7 @@ export default function TermsPage() {
         {/* Introduction */}
         <section className="mb-10">
           <p className="text-gray-700 leading-relaxed mb-3">
-            本利用規約（以下、「本規約」といいます。）は、SNSInsight（以下、「当サービス」といいます。）の利用条件を定めるものです。
+            本利用規約（以下、「本規約」といいます。）は、Trendio（以下、「当サービス」といいます。）の利用条件を定めるものです。
           </p>
           <p className="text-gray-700 leading-relaxed">
             ユーザーは、本規約に同意した上で当サービスを利用するものとします。
@@ -166,10 +166,10 @@ export default function TermsPage() {
           </p>
           <p className="mt-2">
             <a 
-              href="mailto:support@snsinsight.jp" 
+              href="mailto:support@trendio.jp" 
               className="text-blue-600 hover:underline"
             >
-              support@snsinsight.jp
+              support@trendio.jp
             </a>
           </p>
         </section>
@@ -188,7 +188,7 @@ export default function TermsPage() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-gray-500">
-            © 2026 SNSInsight. All rights reserved.
+            © 2026 Trendio. All rights reserved.
           </p>
         </footer>
       </article>

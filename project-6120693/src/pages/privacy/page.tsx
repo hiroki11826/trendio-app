@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 const PRIVACY_CONTENT = {
   title: 'プライバシーポリシー',
   lastUpdated: '2026年3月19日',
-  serviceName: 'SNSInsight',
-  contactEmail: 'support@snsinsight.jp',
+  serviceName: 'Trendio',
+  contactEmail: 'support@trendio.jp',
 };
 
 export default function PrivacyPage() {
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
     }
     metaDescription.setAttribute(
       'content',
-      'SNSInsightのプライバシーポリシーです。当サービスにおける個人情報およびSNS連携データの取得、利用、管理等について定めています。'
+      'Trendioのプライバシーポリシーです。当サービスにおける個人情報およびSNS連携データの取得、利用、管理等について定めています。'
     );
 
     return () => {

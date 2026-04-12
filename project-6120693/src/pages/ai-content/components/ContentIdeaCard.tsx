@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface ContentIdeaCardProps {
   idea: any;
   onGenerateScript: () => void;
@@ -9,16 +11,14 @@ interface ContentIdeaCardProps {
 }
 
 export default function ContentIdeaCard({ idea, onGenerateScript, onSave, onDelete, isGenerating = false, isSaved = false, hasScript = false }: ContentIdeaCardProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all">
       <div className="flex items-start justify-between mb-4">
         <h3 className="text-lg font-bold text-gray-900 flex-1">{idea.title}</h3>
         {isSaved && onDelete && (
-          <button
-            onClick={onDelete}
-            className="ml-2 text-red-500 hover:text-red-700"
-            title="削除"
-          >
+          <button onClick={onDelete} className="ml-2 text-red-500 hover:text-red-700" title={t('aiContent.delete')}>
             <i className="ri-delete-bin-line"></i>
           </button>
         )}
@@ -35,14 +35,14 @@ export default function ContentIdeaCard({ idea, onGenerateScript, onSave, onDele
         <div className="flex items-start space-x-2">
           <i className="ri-flashlight-line text-pink-600 mt-0.5"></i>
           <div>
-            <p className="text-xs font-semibold text-pink-900 mb-1">フック（最初の3秒）</p>
+            <p className="text-xs font-semibold text-pink-900 mb-1">{t('aiContent.hook')}</p>
             <p className="text-sm text-pink-800">{idea.hook}</p>
           </div>
         </div>
       </div>
 
       <div className="mb-4">
-        <p className="text-xs font-semibold text-gray-700 mb-2">投稿構成</p>
+        <p className="text-xs font-semibold text-gray-700 mb-2">{t('aiContent.postStructure')}</p>
         <ol className="space-y-1">
           {idea.structure?.map((item: string, index: number) => (
             <li key={index} className="text-sm text-gray-600 flex items-start">
@@ -54,12 +54,12 @@ export default function ContentIdeaCard({ idea, onGenerateScript, onSave, onDele
       </div>
 
       <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-xs font-semibold text-gray-700 mb-1">キャプション例</p>
+        <p className="text-xs font-semibold text-gray-700 mb-1">{t('aiContent.captionExample')}</p>
         <p className="text-sm text-gray-600 line-clamp-3">{idea.caption}</p>
       </div>
 
       <div className="mb-4">
-        <p className="text-xs font-semibold text-gray-700 mb-1">ハッシュタグ</p>
+        <p className="text-xs font-semibold text-gray-700 mb-1">{t('aiContent.hashtags')}</p>
         <p className="text-xs text-blue-600">{idea.hashtags}</p>
       </div>
 
@@ -71,17 +71,17 @@ export default function ContentIdeaCard({ idea, onGenerateScript, onSave, onDele
         {isGenerating ? (
           <>
             <i className="ri-loader-4-line animate-spin mr-2"></i>
-            台本生成中...
+            {t('aiContent.generatingScript')}
           </>
         ) : hasScript ? (
           <>
             <i className="ri-file-text-line mr-2"></i>
-            保存済み台本を表示
+            {t('aiContent.viewSavedScript')}
           </>
         ) : (
           <>
             <i className="ri-file-text-line mr-2"></i>
-            詳細な台本を生成
+            {t('aiContent.generateDetailedScript')}
           </>
         )}
       </button>
@@ -92,12 +92,12 @@ export default function ContentIdeaCard({ idea, onGenerateScript, onSave, onDele
           className="w-full py-2 border-2 border-emerald-600 text-emerald-600 rounded-lg font-medium hover:bg-emerald-50 transition-all flex items-center justify-center"
         >
           <i className="ri-save-line mr-2"></i>
-          保存する
+          {t('aiContent.saveIdea')}
         </button>
       ) : isSaved ? (
         <div className="w-full py-2 bg-emerald-50 border-2 border-emerald-600 text-emerald-700 rounded-lg font-medium flex items-center justify-center">
           <i className="ri-check-line mr-2"></i>
-          保存済み
+          {t('aiContent.alreadySaved')}
         </div>
       ) : null}
     </div>
