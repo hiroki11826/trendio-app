@@ -1,94 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-
-interface TikTokUserInfo {
-  open_id?: string;
-  display_name?: string;
-  avatar_url?: string;
-  follower_count?: number;
-  following_count?: number;
-  likes_count?: number;
-  video_count?: number;
-}
-
-interface TikTokVideo {
-  id?: string;
-  title?: string;
-  cover_image_url?: string;
-  share_url?: string;
-  like_count?: number;
-  comment_count?: number;
-  share_count?: number;
-  view_count?: number;
-  create_time?: number;
-}
+import { useTranslation } from 'react-i18next';
+import { api, ApiError, type TikTokInsightsResponse } from '../../../services/api';
 
 export default function TikTokDetail() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const [data, setData] = useState<TikTokInsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [notConnected, setNotConnected] = useState(false);
-  const [userInfo, setUserInfo] = useState<TikTokUserInfo | null>(null);
-  const [videos, setVideos] = useState<TikTokVideo[]>([]);
 
   useEffect(() => {
-    fetchTikTokData();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setNotConnected(false);
+        const insights = await api.getTikTokInsights();
+        setData(insights);
+      } catch (err) {
+        console.error('Failed to fetch TikTok insights:', err);
+        if (err instanceof ApiError && (err.status === 404 || err.status === 422 || err.status === 401)) {
+          setNotConnected(true);
+        } else {
+          setNotConnected(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
-
-  const fetchTikTokData = async () => {
-    try {
-      setLoading(true);
-      setNotConnected(false);
-
-      const token = localStorage.getItem('nekocafe_token');
-      if (!token) {
-        setNotConnected(true);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch user info
-      const userResponse = await fetch(`${API_BASE_URL}/api/tiktok/user`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (userResponse.status === 404 || userResponse.status === 401) {
-        setNotConnected(true);
-        setLoading(false);
-        return;
-      }
-
-      if (!userResponse.ok) {
-        setNotConnected(true);
-        setLoading(false);
-        return;
-      }
-
-      const userData = await userResponse.json();
-      setUserInfo(userData);
-
-      // Fetch videos
-      const videosResponse = await fetch(`${API_BASE_URL}/api/tiktok/videos`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (videosResponse.ok) {
-        const videosData = await videosResponse.json();
-        setVideos(videosData.videos || []);
-      }
-
-    } catch (err) {
-      console.error('Failed to fetch TikTok data:', err);
-      setNotConnected(true);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatNumber = (num?: number) => {
     if (!num) return '0';
@@ -96,18 +37,6 @@ export default function TikTokDetail() {
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString();
   };
-
-  const calculateEngagementRate = (): string => {
-    if (!userInfo || !userInfo.follower_count) return '0.00';
-    const totalEngagement = videos.reduce((sum, video) => {
-      return sum + (video.like_count || 0) + (video.comment_count || 0) + (video.share_count || 0);
-    }, 0);
-    const avgEngagement = videos.length > 0 ? totalEngagement / videos.length : 0;
-    return ((avgEngagement / userInfo.follower_count) * 100).toFixed(2);
-  };
-
-  const totalViews = videos.reduce((sum, video) => sum + (video.view_count || 0), 0);
-  const avgViews = videos.length > 0 ? Math.round(totalViews / videos.length) : 0;
 
   if (loading) {
     return (
@@ -118,7 +47,7 @@ export default function TikTokDetail() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-800">TikTok</h2>
-            <p className="text-xs text-gray-400">読み込み中...</p>
+            <p className="text-xs text-gray-400">{t('dashboard.loading')}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl p-12 border border-gray-100 flex items-center justify-center">
@@ -137,7 +66,7 @@ export default function TikTokDetail() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-800">TikTok</h2>
-            <p className="text-xs text-gray-400">フォロワー・動画パフォーマンス</p>
+            <p className="text-xs text-gray-400">{t('tiktok.subtitle')}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-12">
@@ -145,18 +74,14 @@ export default function TikTokDetail() {
             <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-gray-100 flex items-center justify-center">
               <i className="ri-tiktok-line text-3xl text-gray-900"></i>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              TikTokアカウントを連携してください
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              アカウントを連携すると、動画のパフォーマンスやエンゲージメント分析などのインサイトデータを確認できます。
-            </p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('tiktok.connectPrompt')}</h3>
+            <p className="text-sm text-gray-500 mb-6">{t('tiktok.connectDesc')}</p>
             <button
               onClick={() => navigate('/settings')}
               className="inline-flex items-center px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-all cursor-pointer"
             >
               <i className="ri-link mr-2"></i>
-              設定ページで連携する
+              {t('dashboard.connectOnSettings')}
             </button>
           </div>
         </div>
@@ -164,15 +89,18 @@ export default function TikTokDetail() {
     );
   }
 
-  if (!userInfo) {
-    return null;
-  }
+  if (!data) return null;
+
+  const { account, summary, videos } = data;
+  const avgViews = videos && videos.length > 0
+    ? Math.round(videos.reduce((sum, v) => sum + v.views, 0) / videos.length)
+    : 0;
 
   const metrics = [
-    { label: 'フォロワー', value: formatNumber(userInfo.follower_count), icon: 'ri-user-follow-line' },
-    { label: '動画数', value: formatNumber(userInfo.video_count), icon: 'ri-video-line' },
-    { label: '合計いいね', value: formatNumber(userInfo.likes_count), icon: 'ri-heart-line' },
-    { label: '平均視聴回数', value: formatNumber(avgViews), icon: 'ri-eye-line' },
+    { label: t('instagram.followers'), value: formatNumber(account?.followerCount), icon: 'ri-user-follow-line' },
+    { label: t('tiktok.videos'), value: formatNumber(account?.videoCount), icon: 'ri-video-line' },
+    { label: t('tiktok.totalLikes'), value: formatNumber(summary?.totalLikes), icon: 'ri-heart-line' },
+    { label: t('tiktok.avgViews'), value: formatNumber(avgViews), icon: 'ri-eye-line' },
   ];
 
   return (
@@ -183,11 +111,10 @@ export default function TikTokDetail() {
         </div>
         <div>
           <h2 className="text-base font-semibold text-gray-800">TikTok</h2>
-          <p className="text-xs text-gray-400">{userInfo.display_name || 'ユーザー'}</p>
+          <p className="text-xs text-gray-400">{account?.displayName || t('tiktok.user')}</p>
         </div>
       </div>
 
-      {/* サマリー指標 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         {metrics.map((metric, index) => (
           <div key={index} className="bg-white rounded-xl p-5 border border-gray-100">
@@ -197,23 +124,22 @@ export default function TikTokDetail() {
               </div>
             </div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">{metric.label}</p>
-            <p className="text-2xl font-semibold text-gray-900 tracking-tight">{metric.value}</p>
-          </div>
-        ))}
+            {videos.slice(0, 8).map((video, index) => (
+              <div key={video.id || index} className="group cursor-pointer" onClick={() => video.shareUrl && window.open(video.shareUrl, '_blank', 'noopener,noreferrer')}>
+                <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
       </div>
 
-      {/* 最近の動画 */}
-      {videos.length > 0 && (
+      {videos && videos.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-5">最近の動画</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-5">{t('tiktok.recentVideos')}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {videos.slice(0, 8).map((video, index) => (
-              <div key={index} className="group cursor-pointer">
-                <div className="relative aspect-[9/16] bg-gray-100 rounded-lg overflow-hidden mb-2">
-                  {video.cover_image_url && (
+              <div key={video.id || index} className="group cursor-pointer">
+                <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
+                  {video.coverUrl && (
                     <img
-                      src={video.cover_image_url}
-                      alt={video.title || 'Video'}
+                      src={video.coverUrl}
+                      alt={video.title || t('tiktok.untitled')}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   )}
@@ -222,41 +148,32 @@ export default function TikTokDetail() {
                   </div>
                   <div className="absolute bottom-2 left-2 right-2">
                     <div className="flex items-center space-x-2 text-white text-xs">
-                      <span className="flex items-center">
-                        <i className="ri-eye-line mr-1"></i>
-                        {formatNumber(video.view_count)}
-                      </span>
-                      <span className="flex items-center">
-                        <i className="ri-heart-line mr-1"></i>
-                        {formatNumber(video.like_count)}
-                      </span>
+                      <span className="flex items-center"><i className="ri-eye-line mr-1"></i>{formatNumber(video.views)}</span>
+                      <span className="flex items-center"><i className="ri-heart-line mr-1"></i>{formatNumber(video.likes)}</span>
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-gray-600 line-clamp-2">{video.title || '無題'}</p>
+                <p className="text-xs text-gray-600 line-clamp-2">{video.title || t('tiktok.untitled')}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* エンゲージメント率 */}
       <div className="bg-white rounded-xl border border-gray-100 p-6 mt-5">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">エンゲージメント率</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">{t('tiktok.engagementRate')}</h3>
         <div className="flex items-center space-x-4">
           <div className="flex-1">
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gray-900 rounded-full"
-                style={{ width: `${Math.min(parseFloat(calculateEngagementRate()), 100)}%` }}
+                style={{ width: `${Math.min(summary?.avgEngagementRate ?? 0, 100)}%` }}
               ></div>
             </div>
           </div>
-          <span className="text-2xl font-semibold text-gray-900">{calculateEngagementRate()}%</span>
+          <span className="text-2xl font-semibold text-gray-900">{summary?.avgEngagementRate?.toFixed(2) || '0.00'}%</span>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          フォロワーあたりの平均エンゲージメント（いいね + コメント + シェア）
-        </p>
+        <p className="text-xs text-gray-500 mt-2">{t('tiktok.engagementDesc')}</p>
       </div>
     </div>
   );

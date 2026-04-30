@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ActionTrendChartProps {
   data: {
@@ -19,15 +20,16 @@ interface ActionTrendChartProps {
 
 type MetricKey = 'likes' | 'comments' | 'saves' | 'siteClicks';
 
-const metricConfig: Record<MetricKey, { label: string; color: string; icon: string }> = {
-  likes: { label: 'いいね', color: '#ea580c', icon: 'ri-heart-line' },
-  comments: { label: 'コメント', color: '#f97316', icon: 'ri-chat-3-line' },
-  saves: { label: '保存', color: '#fb923c', icon: 'ri-bookmark-line' },
-  siteClicks: { label: 'サイトクリック', color: '#fdba74', icon: 'ri-link' },
-};
-
 export default function ActionTrendChart({ data, summary }: ActionTrendChartProps) {
+  const { t } = useTranslation();
   const [activeMetrics, setActiveMetrics] = useState<MetricKey[]>(['likes', 'comments', 'saves', 'siteClicks']);
+
+  const metricConfig: Record<MetricKey, { label: string; color: string; icon: string }> = {
+    likes: { label: t('instagram.likes'), color: '#ea580c', icon: 'ri-heart-line' },
+    comments: { label: t('instagram.comments'), color: '#f97316', icon: 'ri-chat-3-line' },
+    saves: { label: t('instagram.saves'), color: '#fb923c', icon: 'ri-bookmark-line' },
+    siteClicks: { label: t('instagram.siteClicks'), color: '#fdba74', icon: 'ri-link' },
+  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -65,8 +67,8 @@ export default function ActionTrendChart({ data, summary }: ActionTrendChartProp
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">アクション推移</h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">過去8週間のエンゲージメント</p>
+          <h3 className="text-sm font-semibold text-gray-700">{t('instagram.actionTrend')}</h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.last8weeksEngagement')}</p>
         </div>
       </div>
 

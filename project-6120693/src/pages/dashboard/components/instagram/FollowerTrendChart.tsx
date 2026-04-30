@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface FollowerTrendChartProps {
   data: {
@@ -7,18 +8,20 @@ interface FollowerTrendChartProps {
 }
 
 export default function FollowerTrendChart({ data }: FollowerTrendChartProps) {
+  const { t } = useTranslation();
+
   // データが空の場合は何も表示しない
   if (!data.values || data.values.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700">フォロワー推移</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">過去12週間</p>
+            <h3 className="text-sm font-semibold text-gray-700">{t('instagram.followerTrend')}</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.last12weeks')}</p>
           </div>
         </div>
         <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm">
-          データがありません
+          {t('instagram.noData')}
         </div>
       </div>
     );
@@ -68,8 +71,8 @@ export default function FollowerTrendChart({ data }: FollowerTrendChartProps) {
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">フォロワー推移</h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">過去12週間</p>
+          <h3 className="text-sm font-semibold text-gray-700">{t('instagram.followerTrend')}</h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.last12weeks')}</p>
         </div>
         <div className="flex items-center space-x-1.5 text-xs text-gray-500">
           <i className="ri-arrow-up-line text-orange-500 text-xs"></i>

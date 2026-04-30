@@ -163,6 +163,9 @@ export default function Settings() {
       setConnectingPlatform(platform); awaitingConnectionRef.current = true;
       const stateParam = `instagram-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const loginUrl = new URL(META_LOGIN_URL); loginUrl.searchParams.set('state', stateParam); loginUrl.searchParams.set('token', token);
+      // Set locale based on current language setting
+      const locale = i18n.language === 'ja' ? 'ja_JP' : 'en_US';
+      loginUrl.searchParams.set('locale', locale);
       popupRef.current = window.open(loginUrl.toString(), 'meta-login', 'width=480,height=760,resizable,scrollbars=yes,status=1');
       if (!popupRef.current) { awaitingConnectionRef.current = false; setConnectingPlatform(null); connectionWaitStartRef.current = null; return; }
       connectionWaitStartRef.current = Date.now(); startPolling(); return;

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface GenderBarChartProps {
   data: Array<{
@@ -9,6 +10,8 @@ interface GenderBarChartProps {
 }
 
 export default function GenderBarChart({ data }: GenderBarChartProps) {
+  const { t } = useTranslation();
+
   // データが空の場合のデフォルト値
   const safeData = data && data.length > 0 ? data : [
     { label: '-', male: 0, female: 0, other: 0 }
@@ -18,21 +21,21 @@ export default function GenderBarChart({ data }: GenderBarChartProps) {
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">フォロワー男女比（期間別）</h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">月別の男女比率の推移</p>
+          <h3 className="text-sm font-semibold text-gray-700">{t('instagram.genderByPeriod')}</h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.monthlyGenderTrend')}</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-1.5">
             <div className="w-2 h-2 rounded-full bg-orange-600"></div>
-            <span className="text-[10px] text-gray-400">男性</span>
+            <span className="text-[10px] text-gray-400">{t('instagram.male')}</span>
           </div>
           <div className="flex items-center space-x-1.5">
             <div className="w-2 h-2 rounded-full bg-orange-400"></div>
-            <span className="text-[10px] text-gray-400">女性</span>
+            <span className="text-[10px] text-gray-400">{t('instagram.female')}</span>
           </div>
           <div className="flex items-center space-x-1.5">
             <div className="w-2 h-2 rounded-full bg-orange-200"></div>
-            <span className="text-[10px] text-gray-400">その他</span>
+            <span className="text-[10px] text-gray-400">{t('instagram.other')}</span>
           </div>
         </div>
       </div>

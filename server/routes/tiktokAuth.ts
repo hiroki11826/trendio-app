@@ -281,7 +281,7 @@ export async function tiktokCallback(
     console.log("=== TikTok Callback End ===");
 
     // Redirect to settings page with success message
-    res.redirect("https://app.snsinsight.jp/settings?tiktok_connected=1");
+    res.redirect("https://app.trendio.jp/settings?tiktok_connected=1");
   } catch (error) {
     console.error("=== TikTok Callback Error ===");
     console.error(error);

@@ -84,6 +84,23 @@ export const graphFetch = async <T extends Record<string, unknown>>(path: string
   return payload;
 };
 
+export const graphPost = async <T extends Record<string, unknown>>(path: string, accessToken: string, body: Record<string, string>) => {
+  const url = new URL(`${metaGraphBase}/${path}`);
+  url.searchParams.set("access_token", accessToken);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json()) as T & { error?: { message?: string } };
+  if (!response.ok || payload.error) {
+    const message = payload.error?.message ?? `Meta Graph POST failed (${response.status})`;
+    throw new GraphApiError(response.status, payload, path, message);
+  }
+  return payload;
+};
+
 const fetchMetaAccounts = async (
   accessToken: string,
   fields = "id,name,access_token,instagram_business_account",

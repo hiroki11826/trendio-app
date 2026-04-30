@@ -77,14 +77,20 @@ const renderCallbackPage = (options: {
   status: "success" | "error";
   message: string;
   payload?: Record<string, unknown>;
+  locale?: string;
 }) => {
   const safePayload = options.payload ? JSON.stringify(options.payload) : "null";
+  const isJapanese = options.locale?.startsWith("ja");
+  const lang = isJapanese ? "ja" : "en";
+  const title = options.status === "success"
+    ? (isJapanese ? "Instagram 接続完了" : "Instagram Connection Complete")
+    : (isJapanese ? "Instagram エラー" : "Instagram Error");
   return `<!DOCTYPE html>
-<html lang="ja">
+<html lang="${lang}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Instagram ${options.status === "success" ? "接続完了" : "エラー"}</title>
+    <title>${title}</title>
     <style>
       body { font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f6f8fb; color:#222; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
       .card { padding:24px; border-radius:16px; box-shadow:0 12px 48px rgba(15,23,42,.15); background:#fff; text-align:center; max-width:360px; }
@@ -120,12 +126,16 @@ export function metaLogin(req: Request, res: Response) {
 
   // Get JWT token from query parameter
   const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+  
+  // Get locale from query parameter (default to English)
+  const locale = typeof req.query.locale === "string" ? req.query.locale.trim() : "en_US";
 
   const redirectUri = resolveMetaRedirectUri(req);
   const params = new URLSearchParams({
     client_id: META_APP_ID!,
     redirect_uri: redirectUri,
     response_type: "code",
+    locale: locale,
   });
 
   // スコープを常に明示的に指定（Config IDの有無に関わらず）
@@ -137,6 +147,7 @@ export function metaLogin(req: Request, res: Response) {
     "pages_read_user_content",
     "instagram_basic",
     "instagram_manage_insights",
+    "instagram_manage_comments",
     "business_management"
   ].join(",");
   
@@ -146,7 +157,7 @@ export function metaLogin(req: Request, res: Response) {
     params.set("config_id", META_CONFIG_ID);
   }
 
-  // Pass token in state for callback to retrieve userId
+  // Pass token and locale in state for callback to retrieve userId and language
   const stateObj: Record<string, string> = {};
   const originalState = typeof req.query.state === "string" ? req.query.state.trim() : "";
   if (originalState) {
@@ -154,6 +165,9 @@ export function metaLogin(req: Request, res: Response) {
   }
   if (token) {
     stateObj.token = token;
+  }
+  if (locale) {
+    stateObj.locale = locale;
   }
   
   if (Object.keys(stateObj).length > 0) {
@@ -296,6 +310,18 @@ export async function metaCallback(
       }
     })();
 
+    // Extract locale from state
+    const locale = (() => {
+      const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+      if (!state) return "en_US";
+      try {
+        const parsed = JSON.parse(state) as Record<string, unknown>;
+        return typeof parsed.locale === "string" ? parsed.locale : "en_US";
+      } catch {
+        return "en_US";
+      }
+    })();
+
     // 既知のページIDをフォールバックとして使用
     const fallbackPageId = preferredPageId || "1029155523613404";
     logDebug(`Using fallback page ID: ${fallbackPageId}`);
@@ -334,13 +360,16 @@ export async function metaCallback(
     await ensureMetaConnectionHasIgUser(prisma, connection, pageLink);
 
     // ポップアップを閉じて親ウィンドウに通知するHTMLを返す
+    const isJapanese = locale.startsWith("ja");
+    const successMessage = isJapanese ? "Instagram連携が完了しました" : "Instagram connection completed successfully";
     res.send(renderCallbackPage({
       status: "success",
-      message: "Instagram連携が完了しました",
+      message: successMessage,
       payload: {
         pageId: pageLink.pageId,
         igUserId: pageLink.igUserId,
       },
+      locale,
     }));
   } catch (error) {
     next(error);

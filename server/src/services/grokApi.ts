@@ -551,3 +551,67 @@ JSONのみを返してください。説明文は不要です。
 
   return JSON.parse(jsonMatch[0]);
 };
+
+export const generateCommentReply = async (
+  commentText: string,
+  username: string,
+  postCaption?: string,
+  language?: string
+): Promise<string[]> => {
+  const isJapanese = !language || language.startsWith('ja');
+  const systemPrompt = isJapanese
+    ? `あなたはInstagramのコメント返信の専門家です。ブランドの信頼性を高め、エンゲージメントを促進する自然で親しみやすい返信案を生成してください。`
+    : `You are an expert in Instagram comment replies. Generate natural, friendly reply suggestions that build brand trust and promote engagement.`;
+
+  const userPrompt = isJapanese
+    ? `
+以下のInstagramコメントに対する返信案を3つ生成してください。
+
+コメント投稿者: @${username}
+コメント内容: ${commentText}
+${postCaption ? `投稿のキャプション: ${postCaption}` : ''}
+
+【返信案の条件】
+・自然で親しみやすいトーン
+・50文字以内で簡潔に
+・絵文字を1〜2個使用
+・コメントの内容に具体的に反応する
+・フォロワーとの関係を深める内容
+
+以下のJSON形式で回答してください:
+["返信案1", "返信案2", "返信案3"]
+
+JSONのみを返してください。
+`
+    : `
+Generate 3 reply suggestions for the following Instagram comment.
+
+Commenter: @${username}
+Comment: ${commentText}
+${postCaption ? `Post caption: ${postCaption}` : ''}
+
+Requirements:
+- Natural and friendly tone
+- Concise, under 50 words
+- Use 1-2 emojis
+- Respond specifically to the comment content
+- Deepen the relationship with followers
+
+Reply in the following JSON format:
+["Reply 1", "Reply 2", "Reply 3"]
+
+Return JSON only.
+`;
+
+  const messages: GrokMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
+
+  const response = await chatCompletion(messages, { temperature: 0.8, max_tokens: 500 });
+
+  const jsonMatch = response.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error("Failed to parse reply suggestions");
+
+  return JSON.parse(jsonMatch[0]);
+};

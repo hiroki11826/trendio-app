@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface PostingHoursChartProps {
   data: Array<{
@@ -7,18 +8,20 @@ interface PostingHoursChartProps {
 }
 
 export default function PostingHoursChart({ data }: PostingHoursChartProps) {
+  const { t } = useTranslation();
+
   // データが空の場合のガード
   if (!data || data.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700">投稿時間帯</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">時間帯別エンゲージメント</p>
+            <h3 className="text-sm font-semibold text-gray-700">{t('instagram.postingHours')}</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.engagementByHour')}</p>
           </div>
         </div>
         <div className="h-[160px] flex items-center justify-center text-gray-400 text-sm">
-          データがありません
+          {t('instagram.noData')}
         </div>
       </div>
     );
@@ -39,12 +42,12 @@ export default function PostingHoursChart({ data }: PostingHoursChartProps) {
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">投稿時間帯</h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">時間帯別エンゲージメント</p>
+          <h3 className="text-sm font-semibold text-gray-700">{t('instagram.postingHours')}</h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.engagementByHour')}</p>
         </div>
         <div className="flex items-center space-x-1.5 text-[11px] text-gray-500">
           <i className="ri-time-line text-gray-400 text-xs"></i>
-          <span className="font-medium">ベスト: {topHours[0]?.hour}</span>
+          <span className="font-medium">{t('instagram.best')}: {topHours[0]?.hour}</span>
         </div>
       </div>
 
@@ -82,10 +85,10 @@ export default function PostingHoursChart({ data }: PostingHoursChartProps) {
       <div className="mt-4 p-3 bg-orange-50 rounded-lg">
         <div className="flex items-center space-x-2 mb-1">
           <i className="ri-lightbulb-line text-orange-500 text-xs"></i>
-          <span className="text-[11px] font-medium text-gray-600">おすすめ投稿時間</span>
+          <span className="text-[11px] font-medium text-gray-600">{t('instagram.recommendedTime')}</span>
         </div>
         <p className="text-[11px] text-gray-400">
-          {topHours.map(h => h.hour).join('・')} がエンゲージメントが最も高い時間帯です
+          {topHours.map(h => h.hour).join('・')} {t('instagram.highestEngagementTime')}
         </p>
       </div>
     </div>

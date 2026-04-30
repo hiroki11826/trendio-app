@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface SummaryMetricsProps {
   data: {
@@ -9,6 +10,8 @@ interface SummaryMetricsProps {
 }
 
 export default function SummaryMetrics({ data }: SummaryMetricsProps) {
+  const { t } = useTranslation();
+
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -16,10 +19,10 @@ export default function SummaryMetrics({ data }: SummaryMetricsProps) {
   };
 
   const metrics = [
-    { label: 'フォロワー', value: formatNumber(data.followers), icon: 'ri-group-line' },
-    { label: 'プロフィールビュー', value: formatNumber(data.profileViews), icon: 'ri-eye-line' },
-    { label: 'インプレッション合計', value: formatNumber(data.totalImpressions), icon: 'ri-bar-chart-box-line' },
-    { label: 'リーチ合計', value: formatNumber(data.totalReach), icon: 'ri-broadcast-line' },
+    { label: t('instagram.followers'), value: formatNumber(data.followers), icon: 'ri-group-line' },
+    { label: t('instagram.profileViews'), value: formatNumber(data.profileViews), icon: 'ri-eye-line' },
+    { label: t('instagram.totalImpressions'), value: formatNumber(data.totalImpressions), icon: 'ri-bar-chart-box-line' },
+    { label: t('instagram.totalReach'), value: formatNumber(data.totalReach), icon: 'ri-broadcast-line' },
   ];
 
   return (

@@ -15,6 +15,7 @@ import {
   ensureMetaConnectionHasIgUser,
   getInstagramPageFromUserToken,
   graphFetch,
+  graphPost,
   GraphApiError,
 } from "./services/metaGraph.js";
 import {
@@ -37,6 +38,7 @@ import {
   generateScript,
   analyzeTrends,
   generateInsightReport,
+  generateCommentReply,
   GrokApiError,
 } from "./services/grokApi.js";
 import {
@@ -1038,9 +1040,18 @@ app.get("/api/dashboard/instagram", authenticateToken, async (req: Request, res:
   }
 });
 
-app.get("/api/dashboard/tiktok", async (_req: Request, res: Response, next: NextFunction) => {
+app.get("/api/dashboard/tiktok", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.auth?.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+
     const connection = await prisma.tikTokConnection.findFirst({
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -1124,6 +1135,138 @@ app.get("/api/dashboard/tiktok", async (_req: Request, res: Response, next: Next
         endpoint: error.endpoint,
       });
     }
+    next(error);
+  }
+});
+
+// ===== Instagram Comments API =====
+
+// GET /api/instagram/comments - Get comments from recent media
+app.get("/api/instagram/comments", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.auth?.userId;
+
+    const connection = await prisma.metaConnection.findFirst({
+      where: userId ? { userId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!connection?.pageAccessToken) {
+      res.status(404).json({ error: "Instagram not connected" });
+      return;
+    }
+
+    const igUserId = connection.igUserId;
+    if (!igUserId) {
+      res.status(422).json({ error: "Instagram user ID not found" });
+      return;
+    }
+
+    const accessToken = connection.pageAccessToken;
+
+    // Get recent media
+    const mediaData = await graphFetch<{ data?: Array<{ id: string; caption?: string; media_type?: string; thumbnail_url?: string; media_url?: string; permalink?: string; timestamp?: string }> }>(
+      `${igUserId}/media`,
+      { access_token: accessToken, fields: "id,caption,media_type,thumbnail_url,media_url,permalink,timestamp", limit: "10" }
+    );
+
+    const mediaList = mediaData.data ?? [];
+
+    // Get comments for each media
+    const allComments: Array<{
+      id: string;
+      mediaId: string;
+      mediaUrl: string;
+      mediaPermalink: string;
+      username: string;
+      text: string;
+      timestamp: string;
+      replies?: Array<{ id: string; username: string; text: string; timestamp: string }>;
+    }> = [];
+
+    await Promise.all(
+      mediaList.map(async (media) => {
+        try {
+          const commentsData = await graphFetch<{ data?: Array<{ id: string; username?: string; text?: string; timestamp?: string }> }>(
+            `${media.id}/comments`,
+            { access_token: accessToken, fields: "id,username,text,timestamp", limit: "50" }
+          );
+          const comments = commentsData.data ?? [];
+          for (const c of comments) {
+            allComments.push({
+              id: c.id,
+              mediaId: media.id,
+              mediaUrl: media.thumbnail_url ?? media.media_url ?? "",
+              mediaPermalink: media.permalink ?? "",
+              username: c.username ?? "unknown",
+              text: c.text ?? "",
+              timestamp: c.timestamp ?? "",
+            });
+          }
+        } catch {
+          // skip media with no comments access
+        }
+      })
+    );
+
+    // Sort by timestamp desc
+    allComments.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json({ comments: allComments });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/instagram/comments/:commentId/reply - Reply to a comment
+app.post("/api/instagram/comments/:commentId/reply", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.auth?.userId;
+    const { commentId } = req.params;
+    const { message } = req.body;
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: "Message is required" });
+      return;
+    }
+
+    const connection = await prisma.metaConnection.findFirst({
+      where: userId ? { userId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!connection?.pageAccessToken) {
+      res.status(404).json({ error: "Instagram not connected" });
+      return;
+    }
+
+    const accessToken = connection.pageAccessToken;
+
+    const result = await graphPost<{ id: string }>(
+      `${commentId}/replies`,
+      accessToken,
+      { message: message.trim() }
+    );
+
+    res.json({ success: true, replyId: result.id });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/instagram/comments/suggest-reply - AI reply suggestions
+app.post("/api/instagram/comments/suggest-reply", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { commentText, username, postCaption, language } = req.body;
+    if (!commentText || !username) {
+      res.status(400).json({ error: "commentText and username are required" });
+      return;
+    }
+    const suggestions = await generateCommentReply(commentText, username, postCaption, language);
+    res.json({ suggestions });
+  } catch (error) {
     next(error);
   }
 });

@@ -65,6 +65,41 @@ export type MetaConnectionResponse = {
   };
 };
 
+export type TikTokInsightsResponse = {
+  account: {
+    openId: string;
+    displayName: string;
+    avatarUrl?: string;
+    bioDescription?: string;
+    isVerified: boolean;
+    followerCount: number;
+    followingCount: number;
+    likesCount: number;
+    videoCount: number;
+  };
+  summary: {
+    followers: number;
+    totalLikes: number;
+    totalComments: number;
+    totalShares: number;
+    totalViews: number;
+    avgEngagementRate: number;
+  };
+  videos: Array<{
+    id: string;
+    title: string;
+    coverUrl?: string;
+    shareUrl?: string;
+    createTime?: number;
+    duration?: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+    engagementRate: number;
+  }>;
+};
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -108,6 +143,11 @@ export const api = {
   // Instagram Insights
   getInstagramInsights: async (): Promise<InstagramInsightsResponse> => {
     return fetchWithAuth(`${API_BASE_URL}/api/dashboard/instagram`);
+  },
+
+  // TikTok Insights
+  getTikTokInsights: async (): Promise<TikTokInsightsResponse> => {
+    return fetchWithAuth(`${API_BASE_URL}/api/dashboard/tiktok`);
   },
 
   // Meta Connection

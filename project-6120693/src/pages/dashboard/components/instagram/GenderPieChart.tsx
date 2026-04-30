@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface GenderPieChartProps {
   data: {
@@ -8,11 +9,13 @@ interface GenderPieChartProps {
 }
 
 export default function GenderPieChart({ data }: GenderPieChartProps) {
+  const { t } = useTranslation();
+
   const total = data.male + data.female + data.other;
   const segments = [
-    { label: '女性', value: data.female, color: '#fb923c', percent: ((data.female / total) * 100).toFixed(1) },
-    { label: '男性', value: data.male, color: '#ea580c', percent: ((data.male / total) * 100).toFixed(1) },
-    { label: 'その他', value: data.other, color: '#fed7aa', percent: ((data.other / total) * 100).toFixed(1) },
+    { label: t('instagram.female'), value: data.female, color: '#fb923c', percent: ((data.female / total) * 100).toFixed(1) },
+    { label: t('instagram.male'), value: data.male, color: '#ea580c', percent: ((data.male / total) * 100).toFixed(1) },
+    { label: t('instagram.other'), value: data.other, color: '#fed7aa', percent: ((data.other / total) * 100).toFixed(1) },
   ];
 
   const radius = 80;
@@ -51,8 +54,8 @@ export default function GenderPieChart({ data }: GenderPieChartProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="mb-5">
-        <h3 className="text-sm font-semibold text-gray-700">フォロワー男女比</h3>
-        <p className="text-[11px] text-gray-400 mt-0.5">現在の構成比率</p>
+        <h3 className="text-sm font-semibold text-gray-700">{t('instagram.genderRatio')}</h3>
+        <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.currentRatio')}</p>
       </div>
 
       <div className="flex items-center justify-center">
@@ -78,7 +81,7 @@ export default function GenderPieChart({ data }: GenderPieChartProps) {
             {(total).toLocaleString()}
           </text>
           <text x={cx} y={cy + 12} textAnchor="middle" fill="#d1d5db" fontSize="8">
-            合計
+            {t('instagram.total')}
           </text>
         </svg>
       </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 
 interface RegionBarChartProps {
   data: Array<{
@@ -8,6 +9,7 @@ interface RegionBarChartProps {
 }
 
 export default function RegionBarChart({ data }: RegionBarChartProps) {
+  const { t } = useTranslation();
   const maxPercentage = Math.max(...data.map(d => d.percentage));
 
   const formatNumber = (num: number) => {
@@ -18,8 +20,8 @@ export default function RegionBarChart({ data }: RegionBarChartProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-6">
       <div className="mb-5">
-        <h3 className="text-sm font-semibold text-gray-700">フォロワー地域</h3>
-        <p className="text-[11px] text-gray-400 mt-0.5">上位10地域の分布</p>
+        <h3 className="text-sm font-semibold text-gray-700">{t('instagram.followerRegion')}</h3>
+        <p className="text-[11px] text-gray-400 mt-0.5">{t('instagram.top10regions')}</p>
       </div>
 
       <div className="space-y-2">
