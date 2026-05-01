@@ -215,6 +215,7 @@ export default {
   'comments.noResults': 'No comments found',
   'comments.aiSuggest': 'AI Reply',
   'comments.aiGenerating': 'Generating...',
+  'comments.replied': 'Replied',
   'comments.comingSoon': 'Coming Soon',
   'comments.comingSoonTitle': 'Comment management feature is under development',
   'comments.comingSoonDesc': 'We are developing a feature to centrally manage comments from Instagram and TikTok, allowing efficient replies and DM sending. Please wait a little longer.',

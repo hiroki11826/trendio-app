@@ -24,7 +24,7 @@ New-Item -ItemType Directory -Path $TEMP_DIR | Out-Null
 
 # Copy necessary files
 Copy-Item -Path "server" -Destination "$TEMP_DIR/server" -Recurse -Exclude "node_modules"
-Copy-Item -Path "project-6120693" -Destination "$TEMP_DIR/project-6120693" -Recurse -Exclude "node_modules","out"
+Copy-Item -Path "project-6120693" -Destination "$TEMP_DIR/project-6120693" -Recurse -Exclude "node_modules"
 Copy-Item -Path "docker-compose.prod.yml" -Destination "$TEMP_DIR/"
 Copy-Item -Path ".env.production" -Destination "$TEMP_DIR/"
 Copy-Item -Path "deploy.sh" -Destination "$TEMP_DIR/"
@@ -32,7 +32,6 @@ Copy-Item -Path "deploy.sh" -Destination "$TEMP_DIR/"
 # Remove unnecessary files from server
 Remove-Item -Path "$TEMP_DIR/server/node_modules" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path "$TEMP_DIR/project-6120693/node_modules" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path "$TEMP_DIR/project-6120693/out" -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "[2/5] Creating archive..." -ForegroundColor Yellow
 # Create tar.gz archive

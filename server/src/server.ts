@@ -1194,6 +1194,23 @@ app.get("/api/instagram/comments", authMiddleware, async (req: Request, res: Res
           );
           const comments = commentsData.data ?? [];
           for (const c of comments) {
+            // Get replies for each comment
+            let replies: Array<{ id: string; username: string; text: string; timestamp: string }> = [];
+            try {
+              const repliesData = await graphFetch<{ data?: Array<{ id: string; username?: string; text?: string; timestamp?: string }> }>(
+                `${c.id}/replies`,
+                { access_token: accessToken, fields: "id,username,text,timestamp" }
+              );
+              replies = (repliesData.data ?? []).map(r => ({
+                id: r.id,
+                username: r.username ?? "unknown",
+                text: r.text ?? "",
+                timestamp: r.timestamp ?? "",
+              }));
+            } catch {
+              // No replies or no access
+            }
+
             allComments.push({
               id: c.id,
               mediaId: media.id,
@@ -1202,6 +1219,7 @@ app.get("/api/instagram/comments", authMiddleware, async (req: Request, res: Res
               username: c.username ?? "unknown",
               text: c.text ?? "",
               timestamp: c.timestamp ?? "",
+              replies,
             });
           }
         } catch {

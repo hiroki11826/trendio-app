@@ -12,6 +12,12 @@ interface Comment {
   username: string;
   text: string;
   timestamp: string;
+  replies?: Array<{
+    id: string;
+    username: string;
+    text: string;
+    timestamp: string;
+  }>;
 }
 
 type PresetFilter = 'all' | 'today' | '7days' | '30days' | 'custom';
@@ -93,6 +99,8 @@ export default function Comments() {
       setSentIds(prev => new Set([...prev, commentId]));
       setReplyingTo(null);
       setReplyText('');
+      // Refresh comments to show the new reply
+      await fetchComments();
     } catch {
       setError(t('common.error'));
     } finally {
@@ -235,13 +243,29 @@ export default function Comments() {
                         <i className="ri-instagram-line text-pink-500 text-sm"></i>
                         <span className="text-sm font-semibold text-gray-900">@{comment.username}</span>
                         <span className="text-xs text-gray-400">{formatTime(comment.timestamp)}</span>
-                        {sentIds.has(comment.id) && (
+                        {(sentIds.has(comment.id) || (comment.replies && comment.replies.length > 0)) && (
                           <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full">
-                            <i className="ri-check-line mr-1"></i>{t('settings.saved')}
+                            <i className="ri-check-line mr-1"></i>{t('comments.replied')}
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-700">{comment.text}</p>
+
+                      {/* Display existing replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="mt-3 pl-4 border-l-2 border-emerald-200 space-y-2">
+                          {comment.replies.map(reply => (
+                            <div key={reply.id} className="bg-emerald-50 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <i className="ri-reply-line text-emerald-600 text-xs"></i>
+                                <span className="text-xs font-semibold text-emerald-900">@{reply.username}</span>
+                                <span className="text-xs text-gray-400">{formatTime(reply.timestamp)}</span>
+                              </div>
+                              <p className="text-sm text-gray-700">{reply.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {suggestions[comment.id] && replyingTo === comment.id && (
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -278,10 +302,18 @@ export default function Comments() {
                         </div>
                       ) : (
                         <div className="mt-2 flex items-center gap-3">
-                          <button onClick={() => { setReplyingTo(comment.id); setReplyText(''); }} disabled={sentIds.has(comment.id)} className="text-xs text-emerald-600 hover:text-emerald-700 disabled:text-gray-400 flex items-center gap-1">
+                          <button 
+                            onClick={() => { setReplyingTo(comment.id); setReplyText(''); }} 
+                            disabled={sentIds.has(comment.id) || (comment.replies && comment.replies.length > 0)} 
+                            className="text-xs text-emerald-600 hover:text-emerald-700 disabled:text-gray-400 flex items-center gap-1"
+                          >
                             <i className="ri-reply-line"></i>{t('comments.reply')}
                           </button>
-                          <button onClick={() => handleSuggestReply(comment)} disabled={loadingSuggestions === comment.id || sentIds.has(comment.id)} className="text-xs text-purple-600 hover:text-purple-700 disabled:text-gray-400 flex items-center gap-1">
+                          <button 
+                            onClick={() => handleSuggestReply(comment)} 
+                            disabled={loadingSuggestions === comment.id || sentIds.has(comment.id) || (comment.replies && comment.replies.length > 0)} 
+                            className="text-xs text-purple-600 hover:text-purple-700 disabled:text-gray-400 flex items-center gap-1"
+                          >
                             {loadingSuggestions === comment.id
                               ? <><i className="ri-loader-4-line animate-spin"></i> {t('comments.aiGenerating')}</>
                               : <><i className="ri-sparkling-line"></i> {t('comments.aiSuggest')}</>}

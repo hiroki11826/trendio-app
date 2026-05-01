@@ -215,6 +215,7 @@ export default {
   'comments.noResults': '該当するコメントがありません',
   'comments.aiSuggest': 'AI返信案',
   'comments.aiGenerating': '生成中...',
+  'comments.replied': '返信済み',
   'comments.comingSoon': 'Coming Soon',
   'comments.comingSoonTitle': 'コメント管理機能は準備中です',
   'comments.comingSoonDesc': 'InstagramとTikTokのコメントを一元管理し、効率的に返信・DM送信ができる機能を開発中です。もうしばらくお待ちください。',

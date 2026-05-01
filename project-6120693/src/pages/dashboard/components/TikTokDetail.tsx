@@ -18,10 +18,12 @@ export default function TikTokDetail() {
         const insights = await api.getTikTokInsights();
         setData(insights);
       } catch (err) {
-        console.error('Failed to fetch TikTok insights:', err);
+        // TikTok未連携の場合は想定内のエラーなので、警告レベルでログ出力
         if (err instanceof ApiError && (err.status === 404 || err.status === 422 || err.status === 401)) {
+          console.warn('TikTok not connected:', err.status);
           setNotConnected(true);
         } else {
+          console.error('Failed to fetch TikTok insights:', err);
           setNotConnected(true);
         }
       } finally {
