@@ -152,6 +152,9 @@ export function metaLogin(req: Request, res: Response) {
   ].join(",");
   
   params.set("scope", requiredScopes);
+  
+  // 常に権限確認画面を表示（再認証を強制）
+  params.set("auth_type", "rerequest");
 
   if (META_CONFIG_ID) {
     params.set("config_id", META_CONFIG_ID);
