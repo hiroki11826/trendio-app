@@ -1,6 +1,7 @@
 import { RouteObject, Navigate } from "react-router-dom";
 import { lazy } from "react";
 
+const Home = lazy(() => import("../pages/home/page"));
 const Login = lazy(() => import("../pages/login/page"));
 const Register = lazy(() => import("../pages/register/page"));
 const Dashboard = lazy(() => import("../pages/dashboard/page"));
@@ -18,7 +19,7 @@ const NotFound = lazy(() => import("../pages/NotFound"));
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: <Navigate to="/login" replace />,
+    element: <Home />,
   },
   {
     path: "/login",
