@@ -126,9 +126,9 @@ export default function TikTokDetail() {
               </div>
             </div>
             <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">{metric.label}</p>
-            {videos.slice(0, 8).map((video, index) => (
-              <div key={video.id || index} className="group cursor-pointer" onClick={() => video.shareUrl && window.open(video.shareUrl, '_blank', 'noopener,noreferrer')}>
-                <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
+            <p className="text-2xl font-semibold text-gray-900">{metric.value}</p>
+          </div>
+        ))}
       </div>
 
       {videos && videos.length > 0 && (
