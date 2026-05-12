@@ -1,27 +1,6 @@
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Home() {
-  // Mock data for charts
-  const engagementData = [
-    { name: 'Mon', views: 4200, likes: 320, comments: 45 },
-    { name: 'Tue', views: 5100, likes: 410, comments: 62 },
-    { name: 'Wed', views: 3800, likes: 290, comments: 38 },
-    { name: 'Thu', views: 6200, likes: 520, comments: 78 },
-    { name: 'Fri', views: 7800, likes: 680, comments: 95 },
-    { name: 'Sat', views: 9200, likes: 820, comments: 112 },
-    { name: 'Sun', views: 8500, likes: 750, comments: 98 },
-  ];
-
-  const audienceData = [
-    { name: '18-24', value: 35 },
-    { name: '25-34', value: 42 },
-    { name: '35-44', value: 15 },
-    { name: '45+', value: 8 },
-  ];
-
-  const COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B'];
-
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -111,18 +90,22 @@ export default function Home() {
                       <p className="text-sm text-gray-500">Content Creator</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-4 gap-3 mb-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900">125K</div>
+                      <div className="text-xl font-bold text-gray-900">72</div>
                       <div className="text-xs text-gray-500">Followers</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900">2.4M</div>
-                      <div className="text-xs text-gray-500">Likes</div>
+                      <div className="text-xl font-bold text-gray-900">17</div>
+                      <div className="text-xs text-gray-500">Videos</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900">156</div>
-                      <div className="text-xs text-gray-500">Videos</div>
+                      <div className="text-xl font-bold text-gray-900">502</div>
+                      <div className="text-xs text-gray-500">Total Likes</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-gray-900">842</div>
+                      <div className="text-xs text-gray-500">Avg Views</div>
                     </div>
                   </div>
                   <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
@@ -134,31 +117,33 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Feature 2: Analytics Dashboard - WITH CHARTS */}
+          {/* Feature 2: Analytics Dashboard - SIMPLIFIED */}
           <div className="mb-20">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1">
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-                  <div className="bg-white rounded-xl p-6 shadow-lg">
-                    <h4 className="font-semibold text-gray-900 mb-4">Weekly Engagement Trends</h4>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={engagementData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="name" stroke="#9ca3af" style={{ fontSize: '12px' }} />
-                        <YAxis stroke="#9ca3af" style={{ fontSize: '12px' }} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                        />
-                        <Legend />
-                        <Line type="monotone" dataKey="views" stroke="#3b82f6" strokeWidth={2} name="Views" />
-                        <Line type="monotone" dataKey="likes" stroke="#8b5cf6" strokeWidth={2} name="Likes" />
-                        <Line type="monotone" dataKey="comments" stroke="#ec4899" strokeWidth={2} name="Comments" />
-                      </LineChart>
-                    </ResponsiveContainer>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+                <div className="bg-white rounded-xl p-6 shadow-lg">
+                  <h4 className="font-semibold text-gray-900 mb-6">TikTok Account Metrics</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">Followers</div>
+                      <div className="text-2xl font-bold text-gray-900">72</div>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">Videos</div>
+                      <div className="text-2xl font-bold text-gray-900">17</div>
+                    </div>
+                    <div className="bg-pink-50 rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">Total Likes</div>
+                      <div className="text-2xl font-bold text-gray-900">502</div>
+                    </div>
+                    <div className="bg-indigo-50 rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">Avg Views</div>
+                      <div className="text-2xl font-bold text-gray-900">842</div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="order-1 md:order-2">
+              <div>
                 <div className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium mb-4">
                   <i className="ri-bar-chart-line mr-2"></i>
                   Analytics Dashboard
@@ -167,24 +152,24 @@ export default function Home() {
                   Comprehensive Performance Metrics
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  View detailed analytics including follower count, total likes, total views, and engagement rate. Track your growth over time with interactive charts showing daily, weekly, and monthly trends. Understand which content performs best and when your audience is most active.
+                  View key TikTok metrics at a glance: Followers, Videos, Total Likes, and Average Views per video. The dashboard displays your account statistics retrieved directly from TikTok's API, giving you a clear overview of your content performance and audience engagement.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start">
                     <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Real-time follower and engagement tracking</span>
+                    <span className="text-gray-700">Follower count tracking</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Interactive charts with daily/weekly/monthly views</span>
+                    <span className="text-gray-700">Total video count and total likes across all videos</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Engagement rate calculation and trends</span>
+                    <span className="text-gray-700">Average views per video calculation</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Audience demographics and behavior insights</span>
+                    <span className="text-gray-700">Recent video thumbnails with performance metrics</span>
                   </li>
                 </ul>
               </div>
@@ -203,24 +188,24 @@ export default function Home() {
                   Detailed Video Performance Analysis
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Display your public TikTok videos with detailed performance metrics for each one. Analyze views, likes, comments, shares, and watch time to understand what resonates with your audience. Identify your top-performing content and replicate successful patterns.
+                  View your recent TikTok videos in a grid layout with thumbnail images. Each video displays key performance metrics including views and likes. Click on any video thumbnail to open it directly on TikTok. The dashboard shows up to 8 of your most recent videos with their cover images and engagement statistics.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start">
                     <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Video-by-video performance breakdown</span>
+                    <span className="text-gray-700">Grid display of recent video thumbnails</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Metrics: views, likes, comments, shares, watch time</span>
+                    <span className="text-gray-700">View count and like count for each video</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Identify top-performing content patterns</span>
+                    <span className="text-gray-700">Video titles displayed below thumbnails</span>
                   </li>
                   <li className="flex items-start">
                     <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Compare performance across different video types</span>
+                    <span className="text-gray-700">Click to open videos on TikTok</span>
                   </li>
                 </ul>
               </div>
