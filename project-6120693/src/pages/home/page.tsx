@@ -296,51 +296,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {/* Audience Demographics - WITH PIE CHART */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-            <div className="bg-white rounded-xl p-8 shadow-lg">
-              <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">Audience Demographics Analysis</h3>
-              <div className="grid md:grid-cols-2 gap-8 items-center">
-                <div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={audienceData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {audienceData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-gray-900 mb-3">Age Distribution Insights</h4>
-                  {audienceData.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[index] }}></div>
-                        <span className="text-gray-700 font-medium">{item.name} years</span>
-                      </div>
-                      <span className="text-gray-900 font-semibold">{item.value}%</span>
-                    </div>
-                  ))}
-                  <p className="text-sm text-gray-600 mt-4 pt-4 border-t">
-                    Understanding your audience demographics helps tailor content to your primary viewer segments and optimize engagement strategies.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
