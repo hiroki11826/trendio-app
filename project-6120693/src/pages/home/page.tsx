@@ -1,6 +1,27 @@
 import { Link } from 'react-router-dom';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Home() {
+  // Mock data for charts
+  const engagementData = [
+    { name: 'Mon', views: 4200, likes: 320, comments: 45 },
+    { name: 'Tue', views: 5100, likes: 410, comments: 62 },
+    { name: 'Wed', views: 3800, likes: 290, comments: 38 },
+    { name: 'Thu', views: 6200, likes: 520, comments: 78 },
+    { name: 'Fri', views: 7800, likes: 680, comments: 95 },
+    { name: 'Sat', views: 9200, likes: 820, comments: 112 },
+    { name: 'Sun', views: 8500, likes: 750, comments: 98 },
+  ];
+
+  const audienceData = [
+    { name: '18-24', value: 35 },
+    { name: '25-34', value: 42 },
+    { name: '35-44', value: 15 },
+    { name: '45+', value: 8 },
+  ];
+
+  const COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B'];
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -14,7 +35,7 @@ export default function Home() {
               AI-powered social media analytics platform
             </p>
             <p className="text-lg text-gray-600 mb-10 max-w-2xl mx-auto">
-              Trendio helps users analyze TikTok and Instagram performance with dashboards and AI insights.
+              Trendio helps users analyze TikTok and Instagram performance with comprehensive dashboards, video insights, and AI-powered recommendations.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -34,179 +55,493 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section with Visual Examples */}
       <section className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Powerful Features
+              Powerful Features for Social Media Success
             </h2>
             <p className="text-lg text-gray-600">
               Everything you need to understand and grow your social media presence
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Feature 1: TikTok Account Integration */}
-            {/* This UI supports TikTok scopes: user.info.basic, user.info.profile */}
-            <div className="bg-white border border-gray-200 rounded-xl p-8 hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+          {/* Feature 1: TikTok Account Integration - WITH VISUAL */}
+          <div className="mb-20">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+                  <i className="ri-tiktok-line mr-2"></i>
+                  TikTok Integration
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  Secure TikTok Account Connection
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Connect your TikTok account securely via OAuth authentication. Once connected, Trendio retrieves your profile information including username, avatar, bio, follower count, and video statistics. All data access requires your explicit permission through TikTok's official authorization flow.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">OAuth 2.0 secure authentication</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Access profile data: username, avatar, bio</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Retrieve account statistics: followers, likes, views</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Fetch video list with performance metrics</span>
+                  </li>
+                </ul>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                TikTok Account Integration
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                Users connect their TikTok account securely via OAuth. Profile information including username, avatar, and bio are displayed in the dashboard.
-              </p>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+                <div className="bg-white rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center space-x-4 mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <i className="ri-user-line text-2xl text-white"></i>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">@creative_user</h4>
+                      <p className="text-sm text-gray-500">Content Creator</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">125K</div>
+                      <div className="text-xs text-gray-500">Followers</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">2.4M</div>
+                      <div className="text-xs text-gray-500">Likes</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">156</div>
+                      <div className="text-xs text-gray-500">Videos</div>
+                    </div>
+                  </div>
+                  <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                    <i className="ri-link mr-2"></i>
+                    Connected via OAuth
+                  </button>
+                </div>
+              </div>
             </div>
+          </div>
 
-            {/* Feature 2: Analytics Dashboard */}
-            {/* This UI supports TikTok scope: user.info.stats */}
-            <div className="bg-white border border-gray-200 rounded-xl p-8 hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+          {/* Feature 2: Analytics Dashboard - WITH CHARTS */}
+          <div className="mb-20">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="order-2 md:order-1">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+                  <div className="bg-white rounded-xl p-6 shadow-lg">
+                    <h4 className="font-semibold text-gray-900 mb-4">Weekly Engagement Trends</h4>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={engagementData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="name" stroke="#9ca3af" style={{ fontSize: '12px' }} />
+                        <YAxis stroke="#9ca3af" style={{ fontSize: '12px' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="views" stroke="#3b82f6" strokeWidth={2} name="Views" />
+                        <Line type="monotone" dataKey="likes" stroke="#8b5cf6" strokeWidth={2} name="Likes" />
+                        <Line type="monotone" dataKey="comments" stroke="#ec4899" strokeWidth={2} name="Comments" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                Analytics Dashboard
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                View comprehensive metrics including follower count, total likes, total views, and engagement rate. Track your growth over time with interactive charts.
-              </p>
+              <div className="order-1 md:order-2">
+                <div className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium mb-4">
+                  <i className="ri-bar-chart-line mr-2"></i>
+                  Analytics Dashboard
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  Comprehensive Performance Metrics
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  View detailed analytics including follower count, total likes, total views, and engagement rate. Track your growth over time with interactive charts showing daily, weekly, and monthly trends. Understand which content performs best and when your audience is most active.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Real-time follower and engagement tracking</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Interactive charts with daily/weekly/monthly views</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Engagement rate calculation and trends</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Audience demographics and behavior insights</span>
+                  </li>
+                </ul>
+              </div>
             </div>
+          </div>
 
-            {/* Feature 3: Video Insights */}
-            {/* This UI supports TikTok scope: video.list */}
-            <div className="bg-white border border-gray-200 rounded-xl p-8 hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+          {/* Feature 3: Video Insights - WITH VIDEO GRID */}
+          <div className="mb-20">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-flex items-center px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-medium mb-4">
+                  <i className="ri-video-line mr-2"></i>
+                  Video Insights
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  Detailed Video Performance Analysis
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Display your public TikTok videos with detailed performance metrics for each one. Analyze views, likes, comments, shares, and watch time to understand what resonates with your audience. Identify your top-performing content and replicate successful patterns.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Video-by-video performance breakdown</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Metrics: views, likes, comments, shares, watch time</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Identify top-performing content patterns</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Compare performance across different video types</span>
+                  </li>
+                </ul>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                Video Insights
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                Display your public TikTok videos with detailed performance metrics. Analyze views, likes, comments, and shares for each video to understand what resonates with your audience.
-              </p>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+                <div className="bg-white rounded-xl p-6 shadow-lg">
+                  <h4 className="font-semibold text-gray-900 mb-4">Recent Videos</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="group cursor-pointer">
+                        <div className="relative bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <i className="ri-play-circle-fill text-4xl text-white opacity-80"></i>
+                          </div>
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <div className="flex items-center justify-between text-white text-xs bg-black/50 rounded px-2 py-1">
+                              <span className="flex items-center"><i className="ri-eye-line mr-1"></i>{(Math.random() * 100 + 20).toFixed(0)}K</span>
+                              <span className="flex items-center"><i className="ri-heart-line mr-1"></i>{(Math.random() * 10 + 2).toFixed(1)}K</span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 line-clamp-2">Video title example #{i}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
 
-            {/* Feature 4: AI Insight Reports */}
-            <div className="bg-white border border-gray-200 rounded-xl p-8 hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+          {/* Feature 4: AI Insights - WITH REPORT PREVIEW */}
+          <div className="mb-20">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="order-2 md:order-1">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+                  <div className="bg-white rounded-xl p-6 shadow-lg">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <i className="ri-lightbulb-line text-xl text-white"></i>
+                      </div>
+                      <h4 className="font-semibold text-gray-900">AI-Generated Insights</h4>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                        <p className="text-sm font-medium text-blue-900 mb-1">Peak Engagement Time</p>
+                        <p className="text-xs text-blue-700">Your audience is most active on weekends between 6-9 PM. Consider posting during these hours for maximum reach.</p>
+                      </div>
+                      <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                        <p className="text-sm font-medium text-purple-900 mb-1">Content Performance</p>
+                        <p className="text-xs text-purple-700">Tutorial-style videos receive 3x more engagement than other content types. Focus on educational content.</p>
+                      </div>
+                      <div className="bg-pink-50 border-l-4 border-pink-500 p-4 rounded">
+                        <p className="text-sm font-medium text-pink-900 mb-1">Growth Opportunity</p>
+                        <p className="text-xs text-pink-700">Increase posting frequency to 4-5 times per week to maintain momentum and algorithm favorability.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                AI Insight Reports
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                AI generates personalized reports based on your analytics data. Get actionable recommendations to improve content strategy and boost engagement.
-              </p>
+              <div className="order-1 md:order-2">
+                <div className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium mb-4">
+                  <i className="ri-sparkling-line mr-2"></i>
+                  AI Insights
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  AI-Powered Recommendations
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  AI generates personalized reports based on your analytics data. Get actionable recommendations to improve content strategy, boost engagement, and grow your audience. The AI analyzes patterns in your best-performing content and suggests optimal posting times, content types, and engagement strategies.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-yellow-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Personalized content strategy recommendations</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-yellow-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Optimal posting time suggestions based on audience behavior</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-yellow-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Content type analysis and performance predictions</span>
+                  </li>
+                  <li className="flex items-start">
+                    <i className="ri-check-line text-yellow-600 text-xl mr-3 mt-0.5"></i>
+                    <span className="text-gray-700">Engagement optimization strategies</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Audience Demographics - WITH PIE CHART */}
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
+            <div className="bg-white rounded-xl p-8 shadow-lg">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">Audience Demographics Analysis</h3>
+              <div className="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={audienceData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {audienceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Age Distribution Insights</h4>
+                  {audienceData.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[index] }}></div>
+                        <span className="text-gray-700 font-medium">{item.name} years</span>
+                      </div>
+                      <span className="text-gray-900 font-semibold">{item.value}%</span>
+                    </div>
+                  ))}
+                  <p className="text-sm text-gray-600 mt-4 pt-4 border-t">
+                    Understanding your audience demographics helps tailor content to your primary viewer segments and optimize engagement strategies.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
+      {/* How It Works Section - Enhanced */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              How It Works
+              How Trendio Works
             </h2>
             <p className="text-lg text-gray-600">
-              Get started in minutes with our simple process
+              Get started in minutes with our simple, secure process
             </p>
           </div>
 
-          <div className="space-y-8">
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-6 mx-auto">
                 1
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  User logs into Trendio
-                </h3>
-                <p className="text-gray-600">
-                  Create an account or log in to access the platform.
-                </p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3 text-center">
+                Create Account
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                Sign up with your email address. No credit card required to start.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-mail-line mr-2 text-blue-600"></i>
+                    <span>Email registration</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-shield-check-line mr-2 text-blue-600"></i>
+                    <span>Secure authentication</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-time-line mr-2 text-blue-600"></i>
+                    <span>Takes less than 1 minute</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-6 mx-auto">
                 2
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  User connects TikTok account via OAuth
-                </h3>
-                <p className="text-gray-600">
-                  Click the "Connect TikTok" button to initiate secure OAuth authentication.
-                </p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3 text-center">
+                Connect TikTok
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                Securely link your TikTok account via official OAuth authentication.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-lock-line mr-2 text-blue-600"></i>
+                    <span>OAuth 2.0 security</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-checkbox-circle-line mr-2 text-blue-600"></i>
+                    <span>Review permissions</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-refresh-line mr-2 text-blue-600"></i>
+                    <span>Revoke anytime</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
+            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mb-6 mx-auto">
                 3
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  User grants permissions
-                </h3>
-                <p className="text-gray-600">
-                  Review and approve the requested permissions on TikTok's authorization page. Only authorized data will be accessed.
-                </p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3 text-center">
+                Analyze & Grow
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                Access your dashboard with insights, analytics, and AI recommendations.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-line-chart-line mr-2 text-blue-600"></i>
+                    <span>Real-time analytics</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-lightbulb-line mr-2 text-blue-600"></i>
+                    <span>AI-powered insights</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <i className="ri-rocket-line mr-2 text-blue-600"></i>
+                    <span>Actionable recommendations</span>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
-                4
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+            <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Complete User Journey</h3>
+            <div className="space-y-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  1
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">User Registration & Login</h4>
+                  <p className="text-gray-600 text-sm">
+                    Create an account or log in to access the Trendio platform. Your credentials are securely stored and encrypted.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Data is retrieved and displayed
-                </h3>
-                <p className="text-gray-600">
-                  Your profile information, statistics, and video list are securely retrieved and displayed in your dashboard.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
-                5
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  2
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Navigate to Settings & Connect TikTok</h4>
+                  <p className="text-gray-600 text-sm">
+                    Click the "Connect TikTok" button in your settings page to initiate the secure OAuth authentication flow.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  User analyzes performance
-                </h3>
-                <p className="text-gray-600">
-                  Explore interactive charts, metrics, and insights to understand your content performance.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">
-                6
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  3
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Grant Permissions on TikTok</h4>
+                  <p className="text-gray-600 text-sm">
+                    Review and approve the requested permissions on TikTok's official authorization page. Trendio requests access to: basic profile info, account statistics, and video list. Only authorized data will be accessed.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  User generates AI insights
-                </h3>
-                <p className="text-gray-600">
-                  Click "Generate AI Report" to receive personalized recommendations based on your analytics data.
-                </p>
+
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  4
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Data Retrieval & Dashboard Display</h4>
+                  <p className="text-gray-600 text-sm">
+                    Your profile information (username, avatar, bio), statistics (followers, likes, views), and video list are securely retrieved via TikTok's API and displayed in your personalized dashboard.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  5
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Analyze Performance Metrics</h4>
+                  <p className="text-gray-600 text-sm">
+                    Explore interactive charts showing engagement trends, follower growth, video performance, and audience demographics. Filter by date range and content type.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  6
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Generate AI Insights & Recommendations</h4>
+                  <p className="text-gray-600 text-sm">
+                    Click "Generate AI Report" to receive personalized recommendations based on your analytics data. The AI analyzes your content patterns, audience behavior, and engagement trends to provide actionable strategies for growth.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                  7
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-2">Implement Strategies & Track Results</h4>
+                  <p className="text-gray-600 text-sm">
+                    Apply the AI-recommended strategies to your content creation and posting schedule. Return to your dashboard regularly to track improvements and adjust your approach based on new insights.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
