@@ -46,196 +46,93 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Feature 1: TikTok Account Integration - WITH VISUAL */}
+          {/* TikTok Dashboard Overview - WITH SCREENSHOT */}
           <div className="mb-20">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
                 <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
                   <i className="ri-tiktok-line mr-2"></i>
-                  TikTok Integration
+                  TikTok Dashboard
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  Secure TikTok Account Connection
+                  Complete TikTok Analytics Platform
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Connect your TikTok account securely via OAuth authentication. Once connected, Trendio retrieves your profile information including username, avatar, bio, follower count, and video statistics. All data access requires your explicit permission through TikTok's official authorization flow.
+                  Connect your TikTok account securely via OAuth authentication. View comprehensive metrics including followers, videos, total likes, and average views. Browse your recent videos with thumbnail images and performance statistics. All data is retrieved directly from TikTok's API with your explicit permission.
                 </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">OAuth 2.0 secure authentication</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Access profile data: username, avatar, bio</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Retrieve account statistics: followers, likes, views</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-blue-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Fetch video list with performance metrics</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-                <div className="bg-white rounded-xl p-6 shadow-lg">
-                  <div className="flex items-center space-x-4 mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <i className="ri-user-line text-2xl text-white"></i>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">@creative_user</h4>
-                      <p className="text-sm text-gray-500">Content Creator</p>
-                    </div>
+                
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                      <i className="ri-shield-check-line text-blue-600 mr-2"></i>
+                      Secure Authentication
+                    </h4>
+                    <ul className="space-y-2 ml-6">
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-blue-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">OAuth 2.0 secure authentication</span>
+                      </li>
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-blue-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Access profile data: username, avatar, bio</span>
+                      </li>
+                    </ul>
                   </div>
-                  <div className="grid grid-cols-4 gap-3 mb-4">
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-gray-900">72</div>
-                      <div className="text-xs text-gray-500">Followers</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-gray-900">17</div>
-                      <div className="text-xs text-gray-500">Videos</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-gray-900">502</div>
-                      <div className="text-xs text-gray-500">Total Likes</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold text-gray-900">842</div>
-                      <div className="text-xs text-gray-500">Avg Views</div>
-                    </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                      <i className="ri-bar-chart-line text-purple-600 mr-2"></i>
+                      Account Metrics
+                    </h4>
+                    <ul className="space-y-2 ml-6">
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-purple-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Follower count tracking</span>
+                      </li>
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-purple-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Total video count and total likes</span>
+                      </li>
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-purple-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Average views per video calculation</span>
+                      </li>
+                    </ul>
                   </div>
-                  <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                    <i className="ri-link mr-2"></i>
-                    Connected via OAuth
-                  </button>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                      <i className="ri-video-line text-pink-600 mr-2"></i>
+                      Video Insights
+                    </h4>
+                    <ul className="space-y-2 ml-6">
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-pink-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Grid display of recent video thumbnails</span>
+                      </li>
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-pink-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">View count and like count for each video</span>
+                      </li>
+                      <li className="flex items-start text-sm">
+                        <i className="ri-check-line text-pink-600 mr-2 mt-0.5"></i>
+                        <span className="text-gray-700">Click to open videos on TikTok</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
+              </div>
+              <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200">
+                <img 
+                  src="/tiktok-videos-screenshot.png" 
+                  alt="TikTok Dashboard showing account metrics (72 Followers, 17 Videos, 502 Total Likes, 842 Avg Views) and recent video thumbnails with performance statistics"
+                  className="w-full h-auto"
+                />
               </div>
             </div>
           </div>
 
-          {/* Feature 2: Analytics Dashboard - SIMPLIFIED */}
-          <div className="mb-20">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-                <div className="bg-white rounded-xl p-6 shadow-lg">
-                  <h4 className="font-semibold text-gray-900 mb-6">TikTok Account Metrics</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="text-sm text-gray-600 mb-1">Followers</div>
-                      <div className="text-2xl font-bold text-gray-900">72</div>
-                    </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="text-sm text-gray-600 mb-1">Videos</div>
-                      <div className="text-2xl font-bold text-gray-900">17</div>
-                    </div>
-                    <div className="bg-pink-50 rounded-lg p-4">
-                      <div className="text-sm text-gray-600 mb-1">Total Likes</div>
-                      <div className="text-2xl font-bold text-gray-900">502</div>
-                    </div>
-                    <div className="bg-indigo-50 rounded-lg p-4">
-                      <div className="text-sm text-gray-600 mb-1">Avg Views</div>
-                      <div className="text-2xl font-bold text-gray-900">842</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium mb-4">
-                  <i className="ri-bar-chart-line mr-2"></i>
-                  Analytics Dashboard
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  Comprehensive Performance Metrics
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  View key TikTok metrics at a glance: Followers, Videos, Total Likes, and Average Views per video. The dashboard displays your account statistics retrieved directly from TikTok's API, giving you a clear overview of your content performance and audience engagement.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Follower count tracking</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Total video count and total likes across all videos</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Average views per video calculation</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-purple-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Recent video thumbnails with performance metrics</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 3: Video Insights - WITH VIDEO GRID */}
-          <div className="mb-20">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-flex items-center px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-medium mb-4">
-                  <i className="ri-video-line mr-2"></i>
-                  Video Insights
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  Detailed Video Performance Analysis
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  View your recent TikTok videos in a grid layout with thumbnail images. Each video displays key performance metrics including views and likes. Click on any video thumbnail to open it directly on TikTok. The dashboard shows up to 8 of your most recent videos with their cover images and engagement statistics.
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Grid display of recent video thumbnails</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">View count and like count for each video</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Video titles displayed below thumbnails</span>
-                  </li>
-                  <li className="flex items-start">
-                    <i className="ri-check-line text-pink-600 text-xl mr-3 mt-0.5"></i>
-                    <span className="text-gray-700">Click to open videos on TikTok</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 border border-gray-200">
-                <div className="bg-white rounded-xl p-6 shadow-lg">
-                  <h4 className="font-semibold text-gray-900 mb-4">Recent Videos</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="group cursor-pointer">
-                        <div className="relative bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <i className="ri-play-circle-fill text-4xl text-white opacity-80"></i>
-                          </div>
-                          <div className="absolute bottom-2 left-2 right-2">
-                            <div className="flex items-center justify-between text-white text-xs bg-black/50 rounded px-2 py-1">
-                              <span className="flex items-center"><i className="ri-eye-line mr-1"></i>{(Math.random() * 100 + 20).toFixed(0)}K</span>
-                              <span className="flex items-center"><i className="ri-heart-line mr-1"></i>{(Math.random() * 10 + 2).toFixed(1)}K</span>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-600 line-clamp-2">Video title example #{i}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 4: AI Insights - WITH REPORT PREVIEW */}
+          {/* Feature 2: AI Insights - WITH REPORT PREVIEW */}
           <div className="mb-20">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="order-2 md:order-1">
