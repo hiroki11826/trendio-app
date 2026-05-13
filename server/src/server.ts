@@ -16,15 +16,12 @@ try {
 // Load environment variables based on NODE_ENV
 const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
 const envPath = path.resolve(__dirname, '../../', envFile);
-console.log(`Loading environment from: ${envPath}`);
+console.log(`📁 Loading environment from: ${envPath}`);
 dotenv.config({ path: envPath });
 
-// Verify XAI_API_KEY is loaded
-if (!process.env.XAI_API_KEY) {
-  console.error('WARNING: XAI_API_KEY is not set in environment variables');
-} else {
-  console.log('XAI_API_KEY is loaded successfully');
-}
+// Validate environment variables
+import { validateEnvironment } from "./config/validateEnv.js";
+validateEnvironment();
 
 import { appendFile } from "node:fs/promises";
 import cors from "cors";
