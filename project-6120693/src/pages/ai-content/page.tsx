@@ -129,7 +129,15 @@ export default function AIContent() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ contentIdeaId: ideaId, ...script }),
       });
-      if (response.ok) { alert(t('aiContent.scriptSaved')); await loadSavedIdeas(); }
+      if (response.ok) { 
+        const data = await response.json();
+        alert(t('aiContent.scriptSaved')); 
+        // 保存後、selectedScriptを更新してisSavedをtrueにする
+        if (selectedScript) {
+          setSelectedScript({ ...selectedScript, id: data.contentScript.id, ideaId: ideaId });
+        }
+        await loadSavedIdeas(); 
+      }
       else { throw new Error('Failed to save script'); }
     } catch (error) { console.error('Error saving script:', error); alert(t('aiContent.scriptSaveFailed')); }
   };
@@ -155,6 +163,14 @@ export default function AIContent() {
   const handleGenerateScript = async (idea: any) => {
     setIsGeneratingScript(true);
     try {
+      const token = localStorage.getItem('nekocafe_token');
+      if (!token) {
+        alert(t('aiContent.loginRequired'));
+        setIsGeneratingScript(false);
+        return;
+      }
+
+      // スクリプトを生成
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-script`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -168,8 +184,89 @@ export default function AIContent() {
         throw new Error('Failed to generate script');
       }
       const data = await response.json();
-      setSelectedScript({ ...idea, ...data.script, ideaId: idea.id });
-    } catch (error) { console.error('Error generating script:', error); alert(t('aiContent.generateFailed')); }
+      const generatedScript = data.script;
+
+      // アイデアが保存されていない場合は、まずアイデアを保存
+      let contentIdeaId = idea.id;
+      if (!contentIdeaId) {
+        const ideaResponse = await fetch(`${API_BASE_URL}/api/content-ideas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title: idea.title,
+            concept: idea.concept,
+            format: idea.format,
+            hook: idea.hook,
+            structure: idea.structure,
+            caption: idea.caption,
+            hashtags: idea.hashtags,
+            ...generationContext
+          }),
+        });
+        if (!ideaResponse.ok) throw new Error('Failed to save idea');
+        const ideaData = await ideaResponse.json();
+        contentIdeaId = ideaData.contentIdea.id;
+      }
+
+      // スクリプトを自動保存
+      const scriptResponse = await fetch(`${API_BASE_URL}/api/content-scripts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          contentIdeaId: contentIdeaId,
+          videoTitle: generatedScript.videoTitle,
+          objective: generatedScript.objective,
+          timeline: generatedScript.timeline,
+          fullScript: generatedScript.fullScript,
+          shootingInstructions: generatedScript.shootingInstructions,
+          telops: generatedScript.telops,
+          captionText: generatedScript.captionText,
+          hashtags: generatedScript.hashtags,
+          thumbnailIdea: generatedScript.thumbnailIdea,
+          estimatedDuration: generatedScript.estimatedDuration,
+          whyItWorks: generatedScript.whyItWorks
+        }),
+      });
+
+      if (!scriptResponse.ok) throw new Error('Failed to save script');
+      const scriptData = await scriptResponse.json();
+
+      // 保存されたスクリプトを表示（id付き）
+      setSelectedScript({
+        ...generatedScript,
+        id: scriptData.contentScript.id,
+        ideaId: contentIdeaId,
+        title: idea.title,
+        concept: idea.concept,
+        format: idea.format,
+        hook: idea.hook,
+        structure: idea.structure,
+        caption: idea.caption,
+        hashtags: idea.hashtags
+      });
+
+      // 保存済みアイデアリストを更新
+      await loadSavedIdeas();
+      
+      // savedIdeasの状態を即座に更新して、UIに反映
+      setSavedIdeas(prev => prev.map(i => 
+        i.id === contentIdeaId 
+          ? { ...i, scripts: [scriptData.contentScript] } 
+          : i
+      ));
+      
+      // New Generationタブの場合、contentIdeasも更新
+      if (!idea.id) {
+        setContentIdeas(prev => prev.map(i => 
+          i.tempId === idea.tempId ? { ...i, id: contentIdeaId } : i
+        ));
+        setSavedIdeaIds(prev => new Set([...prev, contentIdeaId]));
+      }
+      
+    } catch (error) { 
+      console.error('Error generating/saving script:', error); 
+      alert(t('aiContent.generateFailed')); 
+    }
     finally { setIsGeneratingScript(false); }
   };
 
@@ -213,7 +310,27 @@ export default function AIContent() {
             </div>
           )}
           {!showSaved && contentIdeas.length > 0 && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.generatedIdeas')}</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{contentIdeas.map((idea) => (<ContentIdeaCard key={idea.tempId || idea.id} idea={idea} onGenerateScript={() => handleGenerateScript(idea)} onSave={() => saveContentIdea(idea)} isGenerating={isGeneratingScript} isSaved={idea.id && savedIdeaIds.has(idea.id)} />))}</div></div>)}
-          {showSaved && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.savedIdeas')}</h2>{savedIdeas.length === 0 ? (<div className="text-center py-12 text-gray-500"><i className="ri-inbox-line text-4xl mb-2"></i><p>{t('aiContent.noSavedIdeas')}</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-6">{savedIdeas.map((idea) => (<ContentIdeaCard key={idea.id} idea={idea} onGenerateScript={() => { if (idea.scripts && idea.scripts.length > 0) { setSelectedScript({ ...idea, ...idea.scripts[0] }); } else { handleGenerateScript(idea); } }} onDelete={() => deleteContentIdea(idea.id)} isGenerating={isGeneratingScript} isSaved={true} hasScript={idea.scripts && idea.scripts.length > 0} />))}</div>)}</div>)}
+          {showSaved && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.savedIdeas')}</h2>{savedIdeas.length === 0 ? (<div className="text-center py-12 text-gray-500"><i className="ri-inbox-line text-4xl mb-2"></i><p>{t('aiContent.noSavedIdeas')}</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-6">{savedIdeas.map((idea) => (<ContentIdeaCard key={idea.id} idea={idea} onGenerateScript={() => { if (idea.scripts && idea.scripts.length > 0) { const script = idea.scripts[0]; setSelectedScript({ 
+            videoTitle: script.videoTitle,
+            objective: script.objective,
+            timeline: script.timeline,
+            fullScript: script.fullScript,
+            shootingInstructions: script.shootingInstructions,
+            telops: script.telops,
+            captionText: script.captionText,
+            hashtags: script.hashtags,
+            thumbnailIdea: script.thumbnailIdea,
+            estimatedDuration: script.estimatedDuration,
+            whyItWorks: script.whyItWorks,
+            ideaId: idea.id, 
+            id: script.id,
+            title: idea.title,
+            concept: idea.concept,
+            format: idea.format,
+            hook: idea.hook,
+            structure: idea.structure,
+            caption: idea.caption
+          }); } else { handleGenerateScript(idea); } }} onDelete={() => deleteContentIdea(idea.id)} isGenerating={isGeneratingScript} isSaved={true} hasScript={idea.scripts && idea.scripts.length > 0} />))}</div>)}</div>)}
         </div>
       </div>
       {selectedScript && (<ScriptPreview script={selectedScript} onClose={() => setSelectedScript(null)} isSaved={selectedScript.id !== undefined} onSave={async () => { const token = localStorage.getItem('nekocafe_token'); if (!selectedScript.ideaId) { try { if (!token) { alert(t('aiContent.loginRequired')); return; } const ideaResponse = await fetch(`${API_BASE_URL}/api/content-ideas`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ title: selectedScript.title, concept: selectedScript.concept, format: selectedScript.format, hook: selectedScript.hook, structure: selectedScript.structure, caption: selectedScript.caption, hashtags: selectedScript.hashtags, ...generationContext }) }); if (!ideaResponse.ok) throw new Error('Failed to save idea'); const ideaData = await ideaResponse.json(); await saveScript(ideaData.contentIdea.id, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } catch (error) { console.error('Error saving:', error); alert(t('aiContent.saveFailed') + ': ' + (error as Error).message); } } else { await saveScript(selectedScript.ideaId, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } }} />)}
