@@ -14,6 +14,7 @@ const Terms = lazy(() => import("../pages/terms/page"));
 const DataDeletion = lazy(() => import("../pages/data-deletion/page"));
 const DataDeletionInfo = lazy(() => import("../pages/data-deletion-info/page"));
 const About = lazy(() => import("../pages/about/page"));
+const InstagramConnect = lazy(() => import("../pages/instagram-connect/page"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
 const routes: RouteObject[] = [
@@ -68,6 +69,10 @@ const routes: RouteObject[] = [
   {
     path: "/about",
     element: <About />,
+  },
+  {
+    path: "/instagram-connect",
+    element: <InstagramConnect />,
   },
   {
     path: "*",

@@ -1319,6 +1319,106 @@ app.post("/api/instagram/comments/suggest-reply", authMiddleware, async (req: Re
   }
 });
 
+// GET /api/instagram/pages - Get user's Facebook Pages with Instagram accounts
+app.get("/api/instagram/pages", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    // Get the most recent Meta connection for this user
+    const connection = await prisma.metaConnection.findFirst({
+      where: userId ? { userId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!connection?.accessToken) {
+      res.status(404).json({ error: "Meta connection not found. Please connect your Facebook account first." });
+      return;
+    }
+
+    const accessToken = connection.accessToken;
+
+    // Fetch user's pages with Instagram business accounts
+    const pagesResponse = await graphFetch<{
+      data?: Array<{
+        id: string;
+        name: string;
+        access_token: string;
+        category?: string;
+        instagram_business_account?: {
+          id: string;
+          username?: string;
+        };
+      }>;
+    }>(
+      "me/accounts",
+      accessToken,
+      { fields: "id,name,access_token,category,instagram_business_account{id,username}" }
+    );
+
+    const pages = pagesResponse.data || [];
+
+    res.json({ 
+      pages,
+      accessToken,
+    });
+  } catch (error) {
+    console.error("Error fetching pages:", error);
+    next(error);
+  }
+});
+
+// POST /api/instagram/connect - Connect a specific Instagram account
+app.post("/api/instagram/connect", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+    const { pageId, pageAccessToken, igUserId } = req.body;
+
+    if (!pageId || !pageAccessToken || !igUserId) {
+      res.status(400).json({ error: "pageId, pageAccessToken, and igUserId are required" });
+      return;
+    }
+
+    // Find existing connection for this user
+    const existingConnection = await prisma.metaConnection.findFirst({
+      where: userId ? { userId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!existingConnection) {
+      res.status(404).json({ error: "Meta connection not found" });
+      return;
+    }
+
+    // Update the connection with the selected page and Instagram account
+    const updatedConnection = await prisma.metaConnection.update({
+      where: { id: existingConnection.id },
+      data: {
+        pageId,
+        pageAccessToken,
+        igUserId,
+      },
+    });
+
+    // Ensure the Instagram user is created/updated in the database
+    await ensureMetaConnectionHasIgUser(prisma, updatedConnection, {
+      pageId,
+      pageAccessToken,
+      igUserId,
+    });
+
+    res.json({ 
+      success: true,
+      connection: {
+        pageId: updatedConnection.pageId,
+        igUserId: updatedConnection.igUserId,
+      },
+    });
+  } catch (error) {
+    console.error("Error connecting Instagram:", error);
+    next(error);
+  }
+});
+
 app.post("/api/ai/generate-ideas", async (req: Request, res: Response, next: NextFunction) => {
   try {
     console.log("=== Generate Ideas Request ===");

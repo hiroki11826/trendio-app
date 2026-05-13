@@ -157,18 +157,9 @@ export default function Settings() {
 
   const handleConnect = useCallback(async (platform: 'instagram' | 'tiktok') => {
     if (platform === 'instagram') {
-      if (typeof window === 'undefined') return;
-      const token = localStorage.getItem('nekocafe_token');
-      if (!token) { console.error('No authentication token found'); alert(t('login.loginRequired')); navigate('/login'); return; }
-      setConnectingPlatform(platform); awaitingConnectionRef.current = true;
-      const stateParam = `instagram-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const loginUrl = new URL(META_LOGIN_URL); loginUrl.searchParams.set('state', stateParam); loginUrl.searchParams.set('token', token);
-      // Set locale based on current language setting
-      const locale = i18n.language === 'ja' ? 'ja_JP' : 'en_US';
-      loginUrl.searchParams.set('locale', locale);
-      popupRef.current = window.open(loginUrl.toString(), 'meta-login', 'width=480,height=760,resizable,scrollbars=yes,status=1');
-      if (!popupRef.current) { awaitingConnectionRef.current = false; setConnectingPlatform(null); connectionWaitStartRef.current = null; return; }
-      connectionWaitStartRef.current = Date.now(); startPolling(); return;
+      // Navigate to the new Instagram connect flow
+      navigate('/instagram-connect');
+      return;
     }
     if (platform === 'tiktok') {
       if (typeof window === 'undefined') return;
@@ -177,7 +168,7 @@ export default function Settings() {
       if (!token) { console.error('No authentication token found'); alert(t('login.loginRequired')); navigate('/login'); setConnectingPlatform(null); return; }
       const loginUrl = `${TIKTOK_LOGIN_URL}?token=${encodeURIComponent(token)}`; window.location.href = loginUrl; return;
     }
-  }, [startPolling, navigate, t]);
+  }, [navigate, t]);
 
   useEffect(() => {
     const fetchProfile = async () => {
