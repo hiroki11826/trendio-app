@@ -136,7 +136,10 @@ export default function AIContent() {
         if (selectedScript) {
           setSelectedScript({ ...selectedScript, id: data.contentScript.id, ideaId: ideaId });
         }
-        await loadSavedIdeas(); 
+        await loadSavedIdeas();
+        
+        // Close the script preview modal after saving
+        setSelectedScript(null); 
       }
       else { throw new Error('Failed to save script'); }
     } catch (error) { console.error('Error saving script:', error); alert(t('aiContent.scriptSaveFailed')); }
@@ -249,18 +252,40 @@ export default function AIContent() {
       await loadSavedIdeas();
       
       // savedIdeasの状態を即座に更新して、UIに反映
-      setSavedIdeas(prev => prev.map(i => 
-        i.id === contentIdeaId 
-          ? { ...i, scripts: [scriptData.contentScript] } 
-          : i
-      ));
+      setSavedIdeas(prev => {
+        const existingIdea = prev.find(i => i.id === contentIdeaId);
+        if (existingIdea) {
+          return prev.map(i => 
+            i.id === contentIdeaId 
+              ? { ...i, scripts: [scriptData.contentScript] } 
+              : i
+          );
+        } else {
+          return [...prev, {
+            id: contentIdeaId,
+            title: idea.title,
+            concept: idea.concept,
+            format: idea.format,
+            hook: idea.hook,
+            structure: idea.structure,
+            caption: idea.caption,
+            hashtags: idea.hashtags,
+            scripts: [scriptData.contentScript]
+          }];
+        }
+      });
       
       // New Generationタブの場合、contentIdeasも更新
       if (!idea.id) {
         setContentIdeas(prev => prev.map(i => 
-          i.tempId === idea.tempId ? { ...i, id: contentIdeaId } : i
+          i.tempId === idea.tempId ? { ...i, id: contentIdeaId, scripts: [scriptData.contentScript] } : i
         ));
         setSavedIdeaIds(prev => new Set([...prev, contentIdeaId]));
+      } else {
+        // 既存のアイデアの場合もcontentIdeasを更新
+        setContentIdeas(prev => prev.map(i => 
+          i.id === contentIdeaId ? { ...i, scripts: [scriptData.contentScript] } : i
+        ));
       }
       
     } catch (error) { 
@@ -309,7 +334,11 @@ export default function AIContent() {
               </div>
             </div>
           )}
-          {!showSaved && contentIdeas.length > 0 && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.generatedIdeas')}</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{contentIdeas.map((idea) => (<ContentIdeaCard key={idea.tempId || idea.id} idea={idea} onGenerateScript={() => handleGenerateScript(idea)} onSave={() => saveContentIdea(idea)} isGenerating={isGeneratingScript} isSaved={idea.id && savedIdeaIds.has(idea.id)} />))}</div></div>)}
+          {!showSaved && contentIdeas.length > 0 && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.generatedIdeas')}</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{contentIdeas.map((idea) => {
+            const savedIdea = savedIdeas.find(s => s.id === idea.id);
+            const hasScript = savedIdea?.scripts && savedIdea.scripts.length > 0;
+            return (<ContentIdeaCard key={idea.tempId || idea.id} idea={idea} onGenerateScript={() => handleGenerateScript(idea)} onSave={() => saveContentIdea(idea)} isGenerating={isGeneratingScript} isSaved={idea.id && savedIdeaIds.has(idea.id)} hasScript={hasScript} />);
+          })}</div></div>)}
           {showSaved && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.savedIdeas')}</h2>{savedIdeas.length === 0 ? (<div className="text-center py-12 text-gray-500"><i className="ri-inbox-line text-4xl mb-2"></i><p>{t('aiContent.noSavedIdeas')}</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-6">{savedIdeas.map((idea) => (<ContentIdeaCard key={idea.id} idea={idea} onGenerateScript={() => { if (idea.scripts && idea.scripts.length > 0) { const script = idea.scripts[0]; setSelectedScript({ 
             videoTitle: script.videoTitle,
             objective: script.objective,
