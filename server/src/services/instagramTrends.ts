@@ -117,8 +117,9 @@ export async function getMediaInsights(
     });
 
     return insights;
-  } catch (error) {
-    console.error(`Failed to fetch insights for media ${mediaId}:`, error);
+  } catch (error: any) {
+    // ビジネスアカウント変更前のメディアなど、インサイトが取得できない場合はスキップ
+    console.warn(`Failed to fetch insights for media ${mediaId}:`, error?.message || error);
     return {};
   }
 }
@@ -156,11 +157,17 @@ export async function analyzeInstagramTrends(
   // メディアを取得
   const media = await getInstagramMedia(igUserId, pageAccessToken, 25);
 
-  // インサイトを取得（並列処理）
+  // インサイトを取得（並列処理、エラーは個別にハンドリング）
   const mediaWithInsights = await Promise.all(
     media.map(async (item) => {
-      const insights = await getMediaInsights(item.id, pageAccessToken, item.media_type);
-      return { ...item, insights };
+      try {
+        const insights = await getMediaInsights(item.id, pageAccessToken, item.media_type);
+        return { ...item, insights };
+      } catch (error: any) {
+        // 個別のメディアでエラーが発生してもスキップして続行
+        console.warn(`Skipping media ${item.id} due to error:`, error?.message || error);
+        return { ...item, insights: {} };
+      }
     })
   );
 
@@ -213,8 +220,9 @@ export async function analyzeInstagramTrends(
 
   // 平均エンゲージメント率
   const avgEngagementRate =
-    postsWithEngagement.reduce((sum, post) => sum + post.engagementRate, 0) /
-    postsWithEngagement.length;
+    postsWithEngagement.length > 0
+      ? postsWithEngagement.reduce((sum, post) => sum + post.engagementRate, 0) / postsWithEngagement.length
+      : 0;
 
   // 投稿時間分析（簡易版）
   const hourCounts = new Array(24).fill(0);
@@ -222,7 +230,8 @@ export async function analyzeInstagramTrends(
     const hour = new Date(post.timestamp).getHours();
     hourCounts[hour]++;
   });
-  const bestHour = hourCounts.indexOf(Math.max(...hourCounts));
+  const maxCount = Math.max(...hourCounts);
+  const bestHour = maxCount > 0 ? hourCounts.indexOf(maxCount) : 12;
   const bestPostingTime = `${bestHour}:00-${bestHour + 1}:00`;
 
   return {

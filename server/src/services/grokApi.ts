@@ -1,6 +1,6 @@
 const XAI_API_BASE = "https://api.x.ai/v1";
 const XAI_API_KEY = process.env.XAI_API_KEY;
-const XAI_MODEL = process.env.XAI_MODEL || "grok-4.1-fast";
+const XAI_MODEL = process.env.XAI_MODEL || "grok-4-1-fast-non-reasoning";
 
 export class GrokApiError extends Error {
   public readonly status: number;

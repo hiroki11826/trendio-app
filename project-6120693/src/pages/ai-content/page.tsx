@@ -153,14 +153,24 @@ export default function AIContent() {
       const goalLabel = allGoalOptions.find(g => g.id === selectedGoal)?.label || selectedGoal;
       const context = { industry: industryValue, goal: goalLabel, freeInput };
       setGenerationContext(context);
+      console.log('Generating content with context:', context);
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-ideas`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(context),
       });
-      if (!response.ok) throw new Error('Failed to generate content ideas');
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error response:', errorData);
+        throw new Error(errorData.message || 'Failed to generate content ideas');
+      }
       const data = await response.json();
+      console.log('Generated ideas:', data);
       setContentIdeas(data.ideas.map((idea: any, index: number) => ({ ...idea, tempId: index + 1 })));
-    } catch (error) { console.error('Error generating content:', error); alert(t('aiContent.generateFailed')); }
+    } catch (error) { 
+      console.error('Error generating content:', error); 
+      alert(t('aiContent.generateFailed') + ': ' + (error as Error).message); 
+    }
     finally { setIsGenerating(false); }
   };
 

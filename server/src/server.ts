@@ -1,6 +1,25 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables based on NODE_ENV
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+const envPath = path.resolve(__dirname, '../../', envFile);
+console.log(`Loading environment from: ${envPath}`);
+dotenv.config({ path: envPath });
+
+// Verify XAI_API_KEY is loaded
+if (!process.env.XAI_API_KEY) {
+  console.error('WARNING: XAI_API_KEY is not set in environment variables');
+} else {
+  console.log('XAI_API_KEY is loaded successfully');
+}
+
 import { appendFile } from "node:fs/promises";
-import path from "node:path";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import cookieParser from "cookie-parser";
@@ -470,7 +489,11 @@ const safeUser = (user: DbUserRow) => ({
 
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const header = req.headers.authorization ?? (req.headers.Authorization as string | undefined);
+  console.log('=== Auth Middleware ===');
+  console.log('Authorization header:', header ? `${header.substring(0, 20)}...` : 'missing');
+  
   if (!header || !header.startsWith("Bearer ")) {
+    console.log('Auth failed: header missing or malformed');
     res.status(401).json({ error: "Authorization header missing or malformed." });
     return;
   }
@@ -479,9 +502,11 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const payload = jwt.verify(token, jwtSecret) as JwtPayload & TokenPayload;
     if (!payload.userId || !payload.email) {
+      console.log('Auth failed: invalid payload');
       res.status(401).json({ error: "Invalid session token." });
       return;
     }
+    console.log('Auth success: userId=', payload.userId);
     (req as AuthenticatedRequest).auth = {
       userId: payload.userId,
       email: payload.email,
@@ -489,6 +514,7 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     (req as any).user = { userId: payload.userId, email: payload.email }; // For compatibility
     next();
   } catch (error) {
+    console.log('Auth failed: token verification error:', (error as Error).message);
     res.status(401).json({ error: "Invalid or expired session token." });
   }
 };
