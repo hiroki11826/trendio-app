@@ -84,6 +84,7 @@ export default function AIContent() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('Loaded saved ideas:', data.contentIdeas);
         setSavedIdeas(data.contentIdeas);
         const ids = new Set<number>(data.contentIdeas.map((idea: any) => idea.id));
         setSavedIdeaIds(ids);
@@ -248,32 +249,8 @@ export default function AIContent() {
         hashtags: idea.hashtags
       });
 
-      // 保存済みアイデアリストを更新
+      // 保存済みアイデアリストを更新（サーバーから最新データを取得）
       await loadSavedIdeas();
-      
-      // savedIdeasの状態を即座に更新して、UIに反映
-      setSavedIdeas(prev => {
-        const existingIdea = prev.find(i => i.id === contentIdeaId);
-        if (existingIdea) {
-          return prev.map(i => 
-            i.id === contentIdeaId 
-              ? { ...i, scripts: [scriptData.contentScript] } 
-              : i
-          );
-        } else {
-          return [...prev, {
-            id: contentIdeaId,
-            title: idea.title,
-            concept: idea.concept,
-            format: idea.format,
-            hook: idea.hook,
-            structure: idea.structure,
-            caption: idea.caption,
-            hashtags: idea.hashtags,
-            scripts: [scriptData.contentScript]
-          }];
-        }
-      });
       
       // New Generationタブの場合、contentIdeasも更新
       if (!idea.id) {
@@ -281,11 +258,6 @@ export default function AIContent() {
           i.tempId === idea.tempId ? { ...i, id: contentIdeaId, scripts: [scriptData.contentScript] } : i
         ));
         setSavedIdeaIds(prev => new Set([...prev, contentIdeaId]));
-      } else {
-        // 既存のアイデアの場合もcontentIdeasを更新
-        setContentIdeas(prev => prev.map(i => 
-          i.id === contentIdeaId ? { ...i, scripts: [scriptData.contentScript] } : i
-        ));
       }
       
     } catch (error) { 
@@ -339,7 +311,10 @@ export default function AIContent() {
             const hasScript = savedIdea?.scripts && savedIdea.scripts.length > 0;
             return (<ContentIdeaCard key={idea.tempId || idea.id} idea={idea} onGenerateScript={() => handleGenerateScript(idea)} onSave={() => saveContentIdea(idea)} isGenerating={isGeneratingScript} isSaved={idea.id && savedIdeaIds.has(idea.id)} hasScript={hasScript} />);
           })}</div></div>)}
-          {showSaved && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.savedIdeas')}</h2>{savedIdeas.length === 0 ? (<div className="text-center py-12 text-gray-500"><i className="ri-inbox-line text-4xl mb-2"></i><p>{t('aiContent.noSavedIdeas')}</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-6">{savedIdeas.map((idea) => (<ContentIdeaCard key={idea.id} idea={idea} onGenerateScript={() => { if (idea.scripts && idea.scripts.length > 0) { const script = idea.scripts[0]; setSelectedScript({ 
+          {showSaved && (<div><h2 className="text-xl font-bold text-gray-900 mb-4">{t('aiContent.savedIdeas')}</h2>{savedIdeas.length === 0 ? (<div className="text-center py-12 text-gray-500"><i className="ri-inbox-line text-4xl mb-2"></i><p>{t('aiContent.noSavedIdeas')}</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-6">{savedIdeas.map((idea) => {
+            const hasScript = idea.scripts && idea.scripts.length > 0;
+            console.log(`Idea ${idea.id} - hasScript:`, hasScript, 'scripts:', idea.scripts);
+            return (<ContentIdeaCard key={idea.id} idea={idea} onGenerateScript={() => { if (idea.scripts && idea.scripts.length > 0) { const script = idea.scripts[0]; setSelectedScript({ 
             videoTitle: script.videoTitle,
             objective: script.objective,
             timeline: script.timeline,
@@ -359,10 +334,11 @@ export default function AIContent() {
             hook: idea.hook,
             structure: idea.structure,
             caption: idea.caption
-          }); } else { handleGenerateScript(idea); } }} onDelete={() => deleteContentIdea(idea.id)} isGenerating={isGeneratingScript} isSaved={true} hasScript={idea.scripts && idea.scripts.length > 0} />))}</div>)}</div>)}
+          }); } else { handleGenerateScript(idea); } }} onDelete={() => deleteContentIdea(idea.id)} isGenerating={isGeneratingScript} isSaved={true} hasScript={hasScript} />);
+          })}</div>)}</div>)}
         </div>
       </div>
-      {selectedScript && (<ScriptPreview script={selectedScript} onClose={() => setSelectedScript(null)} isSaved={selectedScript.id !== undefined} onSave={async () => { const token = localStorage.getItem('nekocafe_token'); if (!selectedScript.ideaId) { try { if (!token) { alert(t('aiContent.loginRequired')); return; } const ideaResponse = await fetch(`${API_BASE_URL}/api/content-ideas`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ title: selectedScript.title, concept: selectedScript.concept, format: selectedScript.format, hook: selectedScript.hook, structure: selectedScript.structure, caption: selectedScript.caption, hashtags: selectedScript.hashtags, ...generationContext }) }); if (!ideaResponse.ok) throw new Error('Failed to save idea'); const ideaData = await ideaResponse.json(); await saveScript(ideaData.contentIdea.id, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } catch (error) { console.error('Error saving:', error); alert(t('aiContent.saveFailed') + ': ' + (error as Error).message); } } else { await saveScript(selectedScript.ideaId, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } }} />)}
+      {selectedScript && (<ScriptPreview script={selectedScript} onClose={() => { setSelectedScript(null); loadSavedIdeas(); }} isSaved={selectedScript.id !== undefined} onSave={async () => { const token = localStorage.getItem('nekocafe_token'); if (!selectedScript.ideaId) { try { if (!token) { alert(t('aiContent.loginRequired')); return; } const ideaResponse = await fetch(`${API_BASE_URL}/api/content-ideas`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ title: selectedScript.title, concept: selectedScript.concept, format: selectedScript.format, hook: selectedScript.hook, structure: selectedScript.structure, caption: selectedScript.caption, hashtags: selectedScript.hashtags, ...generationContext }) }); if (!ideaResponse.ok) throw new Error('Failed to save idea'); const ideaData = await ideaResponse.json(); await saveScript(ideaData.contentIdea.id, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } catch (error) { console.error('Error saving:', error); alert(t('aiContent.saveFailed') + ': ' + (error as Error).message); } } else { await saveScript(selectedScript.ideaId, { videoTitle: selectedScript.videoTitle, objective: selectedScript.objective, timeline: selectedScript.timeline, fullScript: selectedScript.fullScript, shootingInstructions: selectedScript.shootingInstructions, telops: selectedScript.telops, captionText: selectedScript.captionText, hashtags: selectedScript.hashtags, thumbnailIdea: selectedScript.thumbnailIdea, estimatedDuration: selectedScript.estimatedDuration, whyItWorks: selectedScript.whyItWorks }); } }} />)}
     </div>
   );
 }
