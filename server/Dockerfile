@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files first
 COPY package*.json ./
 
-# Install ALL dependencies, skip postinstall script
-RUN npm ci --ignore-scripts
+# Install ALL dependencies (including Prisma binaries)
+RUN npm ci
 
 # Copy prisma schema
 COPY prisma ./prisma/
@@ -35,8 +35,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Skip postinstall script during production install
-RUN npm ci --only=production --ignore-scripts
+# Install production dependencies (including Prisma binaries)
+RUN npm ci --only=production
 
 # Copy prisma schema and generated client from builder (including compiled JS files)
 COPY --from=builder /app/prisma ./prisma
