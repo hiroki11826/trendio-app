@@ -5,6 +5,8 @@ services:
     image: postgres:16
     container_name: snsinsight-postgres
     restart: always
+    env_file:
+      - .env.production
     environment:
       POSTGRES_USER: ${DB_USER:-appuser}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-apppass}
@@ -25,6 +27,8 @@ services:
       dockerfile: Dockerfile
     container_name: snsinsight-server
     restart: always
+    env_file:
+      - .env.production
     environment:
       DATABASE_URL: postgresql://${DB_USER:-appuser}:${DB_PASSWORD:-apppass}@db:5432/${DB_NAME:-appdb}
       PORT: 3001
