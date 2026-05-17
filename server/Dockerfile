@@ -21,12 +21,6 @@ COPY prisma ./prisma/
 # Generate prisma client
 RUN npx prisma generate
 
-# Copy scripts folder
-COPY scripts ./scripts/
-
-# Run the createPrismaDefault script to build client.js and default.js
-RUN node scripts/createPrismaDefault.js
-
 # Copy source code
 COPY . .
 
