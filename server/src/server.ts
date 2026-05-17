@@ -1345,8 +1345,10 @@ app.get("/api/instagram/pages", authenticateToken, async (req: Request, res: Res
       }>;
     }>(
       "me/accounts",
-      accessToken,
-      { fields: "id,name,access_token,category,instagram_business_account{id,username}" }
+      { 
+        access_token: accessToken,
+        fields: "id,name,access_token,category,instagram_business_account{id,username}" 
+      }
     );
 
     const pages = pagesResponse.data || [];

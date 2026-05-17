@@ -325,10 +325,11 @@ export async function metaCallback(
       }
     })();
 
-    logDebug(`User ID from token: ${userId || 'none'}`);
-    logDebug(`Locale: ${locale}`);
+    // 既知のページIDをフォールバックとして使用
+    const fallbackPageId = preferredPageId || "1029155523613404";
+    logDebug(`Using fallback page ID: ${fallbackPageId}`);
+    const pageLink = await getInstagramPageFromUserToken(accessToken, fallbackPageId);
 
-    // Save the access token to MetaConnection
     const prisma = getPrismaClient();
     
     // Find existing connection for this user (if userId is available)
@@ -343,7 +344,10 @@ export async function metaCallback(
 
     const dataToSave = {
       accessToken,
+      pageAccessToken: pageLink.pageAccessToken,
       expiresAt,
+      pageId: pageLink.pageId ?? null,
+      igUserId: pageLink.igUserId ?? null,
       userId: userId,
     };
 
@@ -356,15 +360,18 @@ export async function metaCallback(
           data: dataToSave,
         });
 
-    logDebug(`MetaConnection saved with ID: ${connection.id}`);
+    await ensureMetaConnectionHasIgUser(prisma, connection, pageLink);
 
-    // Return success - frontend will handle page selection
+    // ポップアップを閉じて親ウィンドウに通知するHTMLを返す
     const isJapanese = locale.startsWith("ja");
-    const successMessage = isJapanese ? "Facebook認証が完了しました。ページを選択してください。" : "Facebook authentication completed. Please select a page.";
+    const successMessage = isJapanese ? "Instagram連携が完了しました" : "Instagram connection completed successfully";
     res.send(renderCallbackPage({
       status: "success",
       message: successMessage,
-      payload: {},
+      payload: {
+        pageId: pageLink.pageId,
+        igUserId: pageLink.igUserId,
+      },
       locale,
     }));
   } catch (error) {
