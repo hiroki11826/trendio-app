@@ -1365,7 +1365,7 @@ app.get("/api/instagram/pages", authenticateToken, async (req: Request, res: Res
 app.post("/api/instagram/connect", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user?.userId;
-    const { accessToken, pageId, pageAccessToken, igUserId } = req.body;
+    const { pageId, pageAccessToken, igUserId } = req.body;
 
     if (!pageId || !pageAccessToken || !igUserId) {
       res.status(400).json({ error: "pageId, pageAccessToken, and igUserId are required" });
@@ -1378,32 +1378,20 @@ app.post("/api/instagram/connect", authenticateToken, async (req: Request, res: 
       orderBy: { createdAt: "desc" },
     });
 
-    const dataToSave = {
-      pageId,
-      pageAccessToken,
-      igUserId,
-      ...(accessToken && { accessToken }), // Update accessToken if provided
-    };
-
-    let updatedConnection;
-    
-    if (existingConnection) {
-      // Update the connection with the selected page and Instagram account
-      updatedConnection = await prisma.metaConnection.update({
-        where: { id: existingConnection.id },
-        data: dataToSave,
-      });
-    } else {
-      // Create new connection if none exists
-      updatedConnection = await prisma.metaConnection.create({
-        data: {
-          ...dataToSave,
-          accessToken: accessToken || '',
-          expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
-          userId: userId || null,
-        },
-      });
+    if (!existingConnection) {
+      res.status(404).json({ error: "Meta connection not found" });
+      return;
     }
+
+    // Update the connection with the selected page and Instagram account
+    const updatedConnection = await prisma.metaConnection.update({
+      where: { id: existingConnection.id },
+      data: {
+        pageId,
+        pageAccessToken,
+        igUserId,
+      },
+    });
 
     // Ensure the Instagram user is created/updated in the database
     await ensureMetaConnectionHasIgUser(prisma, updatedConnection, {

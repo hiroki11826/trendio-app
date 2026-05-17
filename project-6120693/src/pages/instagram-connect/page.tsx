@@ -32,25 +32,9 @@ export default function InstagramConnect() {
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'META_CONNECTION') {
         if (event.data.status === 'success') {
-          const payload = event.data.payload || {};
-          
-          // ページ選択が必要な場合
-          if (payload.requiresPageSelection && payload.pages) {
-            setPages(payload.pages);
-            setAccessToken(payload.accessToken);
-            setStep('select-page');
-            return;
-          }
-          
-          // Instagram接続が必要な場合（ページはあるがInstagramが未接続）
-          if (payload.needsInstagramConnection && payload.pages) {
-            setError(t('instagram.noInstagramAccount'));
-            setStep('intro');
-            return;
-          }
-          
-          // 接続完了（自動選択された場合）
-          setStep('complete');
+          // OAuth completed, now fetch pages
+          setStep('select-page');
+          await fetchPages();
         } else {
           setError(event.data.message || t('instagram.connectionFailed'));
           setStep('intro');
@@ -94,21 +78,16 @@ export default function InstagramConnect() {
   const handleStartConnection = () => {
     setStep('connecting');
     const token = localStorage.getItem('nekocafe_token');
-    
-    // Force English locale for Meta App Review
-    // TODO: After review approval, restore multi-language support
-    const locale = 'en_US';
-    console.log('Facebook OAuth locale (forced for review):', locale);
-    
+    const locale = i18n.language === 'ja' ? 'ja_JP' : 'en_US';
+
     // Open OAuth in popup
     const width = 600;
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
-    
+
     const authUrl = `${API_BASE_URL}/api/auth/meta/login?token=${token}&locale=${locale}`;
-    console.log('Auth URL:', authUrl);
-    
+
     window.open(
       authUrl,
       'meta-oauth',
@@ -118,9 +97,9 @@ export default function InstagramConnect() {
 
   const handleSelectPage = async (page: FacebookPage) => {
     setSelectedPage(page);
-    
+
     if (page.instagram_business_account) {
-      // Page already has Instagram account - show confirmation screen
+      // Page already has Instagram account
       setStep('select-instagram');
     } else {
       setError(t('instagram.noInstagramAccount'));
@@ -128,7 +107,7 @@ export default function InstagramConnect() {
   };
 
   const handleConfirmInstagram = async () => {
-    if (!selectedPage || !selectedPage.instagram_business_account || !accessToken) {
+    if (!selectedPage || !selectedPage.instagram_business_account) {
       return;
     }
 
@@ -137,7 +116,6 @@ export default function InstagramConnect() {
       setError(null);
       const token = localStorage.getItem('nekocafe_token');
 
-      // Save connection to database
       const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
         method: 'POST',
         headers: {
@@ -145,7 +123,6 @@ export default function InstagramConnect() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          accessToken: accessToken,
           pageId: selectedPage.id,
           pageAccessToken: selectedPage.access_token,
           igUserId: selectedPage.instagram_business_account.id,
