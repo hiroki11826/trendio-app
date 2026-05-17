@@ -155,6 +155,16 @@ export function metaLogin(req: Request, res: Response) {
   
   // 常に権限確認画面を表示（再認証を強制）
   params.set("auth_type", "rerequest");
+  
+  // 権限の詳細確認画面を表示
+  params.set("display", "popup");
+  
+  // ページ選択とInstagram選択を含む完全なフローを有効化
+  params.set("extras", JSON.stringify({
+    "setup": {
+      "channel": "IG_API_ONBOARDING"
+    }
+  }));
 
   if (META_CONFIG_ID) {
     params.set("config_id", META_CONFIG_ID);

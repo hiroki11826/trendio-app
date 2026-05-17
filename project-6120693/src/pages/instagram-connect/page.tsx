@@ -32,9 +32,9 @@ export default function InstagramConnect() {
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'META_CONNECTION') {
         if (event.data.status === 'success') {
-          // OAuth completed, now fetch pages
-          setStep('select-page');
-          await fetchPages();
+          // OAuth completed with page and Instagram selection done by Meta
+          // Go directly to complete screen
+          setStep('complete');
         } else {
           setError(event.data.message || t('instagram.connectionFailed'));
           setStep('intro');
