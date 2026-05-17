@@ -127,15 +127,15 @@ export function metaLogin(req: Request, res: Response) {
   // Get JWT token from query parameter
   const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
   
-  // Get locale from query parameter (default to English)
-  const locale = typeof req.query.locale === "string" ? req.query.locale.trim() : "en_US";
+  // Force English locale for Meta App Review
+  const locale = "en_US";
 
   const redirectUri = resolveMetaRedirectUri(req);
   const params = new URLSearchParams({
     client_id: META_APP_ID!,
     redirect_uri: redirectUri,
     response_type: "code",
-    locale: locale,
+    // Remove locale parameter here - will be added at the end
   });
 
   // 必須スコープを明示的に指定
@@ -174,11 +174,15 @@ export function metaLogin(req: Request, res: Response) {
     params.set("state", JSON.stringify(stateObj));
   }
 
+  // Add locale at the very end to ensure it takes precedence
+  params.set("locale", locale);
+
   const authUrl = `${metaAuthUrl}?${params.toString()}`;
   
   // デバッグログ
   console.log(`[metaLogin] Auth URL: ${authUrl}`);
   console.log(`[metaLogin] Scopes requested: ${requiredScopes}`);
+  console.log(`[metaLogin] Locale (forced for review): ${locale}`);
 
   res.redirect(authUrl);
 }
