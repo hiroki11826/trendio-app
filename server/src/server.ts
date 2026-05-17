@@ -33,7 +33,6 @@ import type { JwtPayload, Secret, SignOptions } from "jsonwebtoken";
 import { Pool } from "pg";
 import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
-import { PrismaPg } from "@prisma/adapter-pg";
 import {
   ensureMetaConnectionHasIgUser,
   getInstagramPageFromUserToken,
@@ -91,12 +90,7 @@ const pool = new Pool({
   connectionString: databaseUrl,
 });
 
-const prismaAdapter = new PrismaPg({
-  connectionString: databaseUrl,
-});
-const prisma = new PrismaClient({
-  adapter: prismaAdapter,
-});
+const prisma = new PrismaClient();
 
 setMetaPrismaClient(prisma);
 setTikTokPrismaClient(prisma);
