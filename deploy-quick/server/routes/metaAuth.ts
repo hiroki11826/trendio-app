@@ -138,24 +138,27 @@ export function metaLogin(req: Request, res: Response) {
     locale: locale,
   });
 
-  // 必須スコープを明示的に指定
+  // スコープを常に明示的に指定（Config IDの有無に関わらず）
   const requiredScopes = [
     "email",
     "public_profile", 
     "pages_show_list",
     "pages_read_engagement",
+    "pages_read_user_content",
     "instagram_basic",
     "instagram_manage_insights",
-    "instagram_manage_comments"
+    "instagram_manage_comments",
+    "business_management"
   ].join(",");
   
   params.set("scope", requiredScopes);
   
   // 常に権限確認画面を表示（再認証を強制）
   params.set("auth_type", "rerequest");
-  
-  // ポップアップ表示
-  params.set("display", "popup");
+
+  if (META_CONFIG_ID) {
+    params.set("config_id", META_CONFIG_ID);
+  }
 
   // Pass token and locale in state for callback to retrieve userId and language
   const stateObj: Record<string, string> = {};
@@ -179,6 +182,7 @@ export function metaLogin(req: Request, res: Response) {
   // デバッグログ
   console.log(`[metaLogin] Auth URL: ${authUrl}`);
   console.log(`[metaLogin] Scopes requested: ${requiredScopes}`);
+  console.log(`[metaLogin] META_CONFIG_ID: ${META_CONFIG_ID || 'not set'}`);
 
   res.redirect(authUrl);
 }
@@ -321,87 +325,10 @@ export async function metaCallback(
       }
     })();
 
-    logDebug(`User ID from token: ${userId || 'none'}`);
-    logDebug(`Locale: ${locale}`);
-
-    // Facebookページ一覧を取得
-    const pagesUrl = `${metaGraphBase}/me/accounts?access_token=${accessToken}&fields=id,name,access_token,category,instagram_business_account{id,username}`;
-    logDebug(`Fetching pages from: ${pagesUrl.replace(accessToken, 'TOKEN')}`);
-    
-    const pagesResponse = await fetch(pagesUrl);
-    const pagesData = await pagesResponse.json() as { data?: Array<{
-      id: string;
-      name: string;
-      access_token: string;
-      category?: string;
-      instagram_business_account?: { id: string; username?: string };
-    }> };
-
-    logDebug(`Pages response: ${JSON.stringify(pagesData)}`);
-
-    if (!pagesResponse.ok || !pagesData.data || pagesData.data.length === 0) {
-      const isJapanese = locale.startsWith("ja");
-      const errorMessage = isJapanese 
-        ? "Facebookページが見つかりませんでした。Facebookページを作成してから再度お試しください。"
-        : "No Facebook pages found. Please create a Facebook page and try again.";
-      
-      res.send(renderCallbackPage({
-        status: "error",
-        message: errorMessage,
-        locale,
-      }));
-      return;
-    }
-
-    // Instagram Business Accountが紐づいているページのみフィルタ
-    const pagesWithInstagram = pagesData.data.filter(page => page.instagram_business_account);
-    
-    if (pagesWithInstagram.length === 0) {
-      const isJapanese = locale.startsWith("ja");
-      const errorMessage = isJapanese
-        ? "Instagram Business Accountが紐づいているFacebookページが見つかりませんでした。"
-        : "No Facebook pages with Instagram Business Account found.";
-      
-      res.send(renderCallbackPage({
-        status: "error",
-        message: errorMessage,
-        payload: {
-          needsInstagramConnection: true,
-          pages: pagesData.data.map(p => ({ id: p.id, name: p.name })),
-        },
-        locale,
-      }));
-      return;
-    }
-
-    // 複数ページがある場合はページ選択画面へ、1つの場合は自動選択
-    if (pagesWithInstagram.length > 1) {
-      logDebug(`Multiple pages found (${pagesWithInstagram.length}), redirecting to page selection`);
-      
-      // ページ選択画面へリダイレクト（フロントエンドで処理）
-      res.send(renderCallbackPage({
-        status: "success",
-        message: "Please select a Facebook page",
-        payload: {
-          requiresPageSelection: true,
-          pages: pagesWithInstagram,
-          accessToken: accessToken,
-          expiresAt: expiresAt.toISOString(),
-        },
-        locale,
-      }));
-      return;
-    }
-
-    // 1つのページのみの場合は自動選択
-    const selectedPage = pagesWithInstagram[0];
-    logDebug(`Auto-selecting single page: ${selectedPage.name} (${selectedPage.id})`);
-
-    const pageLink = {
-      pageId: selectedPage.id,
-      pageAccessToken: selectedPage.access_token,
-      igUserId: selectedPage.instagram_business_account!.id,
-    };
+    // 既知のページIDをフォールバックとして使用
+    const fallbackPageId = preferredPageId || "1029155523613404";
+    logDebug(`Using fallback page ID: ${fallbackPageId}`);
+    const pageLink = await getInstagramPageFromUserToken(accessToken, fallbackPageId);
 
     const prisma = getPrismaClient();
     
@@ -444,8 +371,6 @@ export async function metaCallback(
       payload: {
         pageId: pageLink.pageId,
         igUserId: pageLink.igUserId,
-        pageName: selectedPage.name,
-        instagramUsername: selectedPage.instagram_business_account!.username,
       },
       locale,
     }));

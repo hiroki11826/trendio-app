@@ -32,8 +32,24 @@ export default function InstagramConnect() {
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'META_CONNECTION') {
         if (event.data.status === 'success') {
-          // OAuth completed with page and Instagram selection done by Meta
-          // Go directly to complete screen
+          const payload = event.data.payload || {};
+          
+          // ページ選択が必要な場合
+          if (payload.requiresPageSelection && payload.pages) {
+            setPages(payload.pages);
+            setAccessToken(payload.accessToken);
+            setStep('select-page');
+            return;
+          }
+          
+          // Instagram接続が必要な場合（ページはあるがInstagramが未接続）
+          if (payload.needsInstagramConnection && payload.pages) {
+            setError(t('instagram.noInstagramAccount'));
+            setStep('intro');
+            return;
+          }
+          
+          // 接続完了（自動選択された場合）
           setStep('complete');
         } else {
           setError(event.data.message || t('instagram.connectionFailed'));
@@ -99,7 +115,7 @@ export default function InstagramConnect() {
     setSelectedPage(page);
     
     if (page.instagram_business_account) {
-      // Page already has Instagram account
+      // Page already has Instagram account - show confirmation screen
       setStep('select-instagram');
     } else {
       setError(t('instagram.noInstagramAccount'));
@@ -107,7 +123,7 @@ export default function InstagramConnect() {
   };
 
   const handleConfirmInstagram = async () => {
-    if (!selectedPage || !selectedPage.instagram_business_account) {
+    if (!selectedPage || !selectedPage.instagram_business_account || !accessToken) {
       return;
     }
 
@@ -116,6 +132,7 @@ export default function InstagramConnect() {
       setError(null);
       const token = localStorage.getItem('nekocafe_token');
 
+      // Save connection to database
       const response = await fetch(`${API_BASE_URL}/api/instagram/connect`, {
         method: 'POST',
         headers: {
@@ -123,6 +140,7 @@ export default function InstagramConnect() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          accessToken: accessToken,
           pageId: selectedPage.id,
           pageAccessToken: selectedPage.access_token,
           igUserId: selectedPage.instagram_business_account.id,
