@@ -2080,16 +2080,15 @@ app.get("/api/user/data-summary", authenticateToken, async (req: Request, res: R
 app.put("/api/user/profile", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.userId;
-    const { companyName } = req.body;
+    const { name } = req.body;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { companyName: companyName || null },
+      data: { name: name || null },
       select: {
         id: true,
         email: true,
         name: true,
-        companyName: true,
       },
     });
 
@@ -2110,7 +2109,6 @@ app.get("/api/user/profile", authenticateToken, async (req: Request, res: Respon
         id: true,
         email: true,
         name: true,
-        companyName: true,
       },
     });
 
