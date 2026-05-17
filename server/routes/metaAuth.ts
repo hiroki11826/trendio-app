@@ -127,35 +127,38 @@ export function metaLogin(req: Request, res: Response) {
   // Get JWT token from query parameter
   const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
   
-  // Force English locale for Meta App Review
-  const locale = "en_US";
+  // Get locale from query parameter (default to English)
+  const locale = typeof req.query.locale === "string" ? req.query.locale.trim() : "en_US";
 
   const redirectUri = resolveMetaRedirectUri(req);
   const params = new URLSearchParams({
     client_id: META_APP_ID!,
     redirect_uri: redirectUri,
     response_type: "code",
-    // Remove locale parameter here - will be added at the end
+    locale: locale,
   });
 
-  // 必須スコープを明示的に指定
+  // スコープを常に明示的に指定（Config IDの有無に関わらず）
   const requiredScopes = [
     "email",
     "public_profile", 
     "pages_show_list",
     "pages_read_engagement",
+    "pages_read_user_content",
     "instagram_basic",
     "instagram_manage_insights",
-    "instagram_manage_comments"
+    "instagram_manage_comments",
+    "business_management"
   ].join(",");
   
   params.set("scope", requiredScopes);
   
   // 常に権限確認画面を表示（再認証を強制）
   params.set("auth_type", "rerequest");
-  
-  // ポップアップ表示
-  params.set("display", "popup");
+
+  if (META_CONFIG_ID) {
+    params.set("config_id", META_CONFIG_ID);
+  }
 
   // Pass token and locale in state for callback to retrieve userId and language
   const stateObj: Record<string, string> = {};
@@ -174,15 +177,12 @@ export function metaLogin(req: Request, res: Response) {
     params.set("state", JSON.stringify(stateObj));
   }
 
-  // Add locale at the very end to ensure it takes precedence
-  params.set("locale", locale);
-
   const authUrl = `${metaAuthUrl}?${params.toString()}`;
   
   // デバッグログ
   console.log(`[metaLogin] Auth URL: ${authUrl}`);
   console.log(`[metaLogin] Scopes requested: ${requiredScopes}`);
-  console.log(`[metaLogin] Locale (forced for review): ${locale}`);
+  console.log(`[metaLogin] META_CONFIG_ID: ${META_CONFIG_ID || 'not set'}`);
 
   res.redirect(authUrl);
 }
@@ -200,18 +200,11 @@ export async function metaCallback(
   next: NextFunction,
 ) {
   // デバッグログ用
-  const logDebug = (msg: string, data?: any) => {
-    if (data) {
-      console.log(`[metaCallback] ${msg}`, JSON.stringify(data, null, 2));
-    } else {
-      console.log(`[metaCallback] ${msg}`);
-    }
+  const logDebug = (msg: string) => {
+    console.log(`[metaCallback] ${msg}`);
   };
 
   try {
-    // Log raw OAuth callback query
-    logDebug(`Raw OAuth callback query:`, req.query);
-    
     if (!ensureMetaRedirectConfig(req, res) || !ensureMetaSecret(res)) {
       return;
     }
@@ -226,7 +219,6 @@ export async function metaCallback(
     logDebug(`Redirect URI: ${redirectUri}`);
     logDebug(`Code received: ${code.substring(0, 20)}...`);
 
-    // Token exchange
     const tokenParams = new URLSearchParams({
       client_id: META_APP_ID!,
       redirect_uri: redirectUri,
@@ -239,10 +231,11 @@ export async function metaCallback(
     const tokenResponse = await fetch(`${metaGraphBase}/oauth/access_token?${tokenParams.toString()}`);
     const tokenPayload = (await tokenResponse.json()) as Record<string, unknown>;
     
-    logDebug(`Token exchange response:`, tokenPayload);
+    logDebug(`Token response status: ${tokenResponse.status}`);
+    logDebug(`Token payload keys: ${Object.keys(tokenPayload).join(', ')}`);
     
     if (!tokenResponse.ok) {
-      logDebug(`Token exchange failed with status ${tokenResponse.status}`);
+      logDebug(`Token exchange failed: ${JSON.stringify(tokenPayload)}`);
       res.status(502).json({
         error: "Failed to exchange Meta code for a token.",
         details: tokenPayload,
@@ -259,39 +252,17 @@ export async function metaCallback(
       return;
     }
 
-    logDebug(`Access token received: ${accessToken.substring(0, 30)}... (length: ${accessToken.length})`);
+    logDebug(`Access token received: ${accessToken.substring(0, 30)}...`);
+    logDebug(`Token length: ${accessToken.length}`);
 
-    // Debug token to get granular scopes
-    let debugData: any = null;
-    let granularPageIds: string[] = [];
-    
+    // トークンのデバッグ情報を取得
     try {
       const debugUrl = `${metaGraphBase}/debug_token?input_token=${accessToken}&access_token=${META_APP_ID}|${META_APP_SECRET}`;
       const debugResponse = await fetch(debugUrl);
-      debugData = await debugResponse.json();
-      logDebug(`Debug token response:`, debugData);
-      
-      // Extract page IDs from granular_scopes
-      if (debugData?.data?.granular_scopes) {
-        for (const scope of debugData.data.granular_scopes) {
-          if (scope.scope === 'pages_show_list' && scope.target_ids) {
-            granularPageIds = scope.target_ids;
-            logDebug(`Found pages_show_list target_ids:`, granularPageIds);
-          }
-        }
-      }
+      const debugData = await debugResponse.json();
+      logDebug(`Token debug info: ${JSON.stringify(debugData, null, 2)}`);
     } catch (debugError) {
       logDebug(`Failed to get token debug info: ${String(debugError)}`);
-    }
-
-    // Get /me info
-    try {
-      const meUrl = `${metaGraphBase}/me?access_token=${accessToken}&fields=id,name,email`;
-      const meResponse = await fetch(meUrl);
-      const meData = await meResponse.json();
-      logDebug(`/me response:`, meData);
-    } catch (meError) {
-      logDebug(`Failed to get /me info: ${String(meError)}`);
     }
 
     const expiresIn =
@@ -304,6 +275,28 @@ export async function metaCallback(
     const expiresAt = expiresIn
       ? new Date(Date.now() + Math.round(expiresIn) * 1000)
       : new Date();
+
+    const preferredPageId = (() => {
+      const direct = typeof req.query.preferredPageId === "string" ? req.query.preferredPageId.trim() : "";
+      if (direct) {
+        return direct;
+      }
+      const missingPageId = typeof req.query.pageId === "string" ? req.query.pageId.trim() : "";
+      if (missingPageId) {
+        return missingPageId;
+      }
+      const state = typeof req.query.state === "string" ? req.query.state.trim() : "";
+      if (!state) {
+        return undefined;
+      }
+      try {
+        const parsed = JSON.parse(state) as Record<string, unknown>;
+        const value = typeof parsed.preferredPageId === "string" ? parsed.preferredPageId.trim() : "";
+        return value || undefined;
+      } catch {
+        return undefined;
+      }
+    })();
 
     // Extract userId from JWT token in state
     const userId = (() => {
@@ -335,115 +328,10 @@ export async function metaCallback(
     logDebug(`User ID from token: ${userId || 'none'}`);
     logDebug(`Locale: ${locale}`);
 
-    // Try to fetch pages using /me/accounts
-    const pagesUrl = `${metaGraphBase}/me/accounts?access_token=${accessToken}&fields=id,name,access_token,category,tasks,instagram_business_account{id,username}`;
-    logDebug(`Fetching pages from: ${pagesUrl.replace(accessToken, 'TOKEN')}`);
-    
-    const pagesResponse = await fetch(pagesUrl);
-    const pagesData = await pagesResponse.json() as { data?: Array<{
-      id: string;
-      name: string;
-      access_token: string;
-      category?: string;
-      tasks?: string[];
-      instagram_business_account?: { id: string; username?: string };
-    }> };
-
-    logDebug(`/me/accounts response:`, pagesData);
-
-    let pages = pagesData.data || [];
-    
-    // FALLBACK: If /me/accounts returns empty but we have granular page IDs, fetch them directly
-    if (pages.length === 0 && granularPageIds.length > 0) {
-      logDebug(`/me/accounts returned empty, trying fallback with granular page IDs`);
-      
-      for (const pageId of granularPageIds) {
-        try {
-          const pageUrl = `${metaGraphBase}/${pageId}?access_token=${accessToken}&fields=id,name,access_token,category,tasks,instagram_business_account{id,username}`;
-          logDebug(`Fetching page directly: ${pageUrl.replace(accessToken, 'TOKEN')}`);
-          
-          const pageResponse = await fetch(pageUrl);
-          const pageData = await pageResponse.json();
-          logDebug(`Direct page fetch response for ${pageId}:`, pageData);
-          
-          if (pageData.id) {
-            pages.push(pageData);
-            logDebug(`Successfully fetched page ${pageId} via fallback`);
-          }
-        } catch (pageError) {
-          logDebug(`Failed to fetch page ${pageId}: ${String(pageError)}`);
-        }
-      }
-    }
-
-    if (pages.length === 0) {
-      const isJapanese = locale.startsWith("ja");
-      const errorMessage = isJapanese 
-        ? "Facebookページが見つかりませんでした。Facebookページを作成してから再度お試しください。"
-        : "No Facebook pages found. Please create a Facebook page and try again.";
-      
-      logDebug(`No pages found after all attempts`);
-      res.send(renderCallbackPage({
-        status: "error",
-        message: errorMessage,
-        locale,
-      }));
-      return;
-    }
-
-    logDebug(`Total pages found: ${pages.length}`);
-
-    // Instagram Business Accountが紐づいているページのみフィルタ
-    const pagesWithInstagram = pages.filter(page => page.instagram_business_account);
-    
-    logDebug(`Pages with Instagram: ${pagesWithInstagram.length}`);
-
-    if (pagesWithInstagram.length === 0) {
-      const isJapanese = locale.startsWith("ja");
-      const errorMessage = isJapanese
-        ? "Instagram Business Accountが紐づいているFacebookページが見つかりませんでした。"
-        : "No Facebook pages with Instagram Business Account found.";
-      
-      res.send(renderCallbackPage({
-        status: "error",
-        message: errorMessage,
-        payload: {
-          needsInstagramConnection: true,
-          pages: pages.map(p => ({ id: p.id, name: p.name })),
-        },
-        locale,
-      }));
-      return;
-    }
-
-    // 複数ページがある場合はページ選択画面へ、1つの場合は自動選択
-    if (pagesWithInstagram.length > 1) {
-      logDebug(`Multiple pages found (${pagesWithInstagram.length}), redirecting to page selection`);
-      
-      // ページ選択画面へリダイレクト（フロントエンドで処理）
-      res.send(renderCallbackPage({
-        status: "success",
-        message: "Please select a Facebook page",
-        payload: {
-          requiresPageSelection: true,
-          pages: pagesWithInstagram,
-          accessToken: accessToken,
-          expiresAt: expiresAt.toISOString(),
-        },
-        locale,
-      }));
-      return;
-    }
-
-    // 1つのページのみの場合は自動選択
-    const selectedPage = pagesWithInstagram[0];
-    logDebug(`Auto-selecting single page: ${selectedPage.name} (${selectedPage.id})`);
-
-    const pageLink = {
-      pageId: selectedPage.id,
-      pageAccessToken: selectedPage.access_token,
-      igUserId: selectedPage.instagram_business_account!.id,
-    };
+    // 既知のページIDをフォールバックとして使用
+    const fallbackPageId = preferredPageId || "1029155523613404";
+    logDebug(`Using fallback page ID: ${fallbackPageId}`);
+    const pageLink = await getInstagramPageFromUserToken(accessToken, fallbackPageId);
 
     const prisma = getPrismaClient();
     
@@ -486,8 +374,6 @@ export async function metaCallback(
       payload: {
         pageId: pageLink.pageId,
         igUserId: pageLink.igUserId,
-        pageName: selectedPage.name,
-        instagramUsername: selectedPage.instagram_business_account!.username,
       },
       locale,
     }));
