@@ -12,7 +12,6 @@ model User {
   id                 Int                  @id @default(autoincrement())
   email              String               @unique
   name               String?
-  companyName        String?
   createdAt          DateTime             @default(now())
   password           String
   isActive           Boolean              @default(true)
