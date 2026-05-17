@@ -95,14 +95,10 @@ export default function InstagramConnect() {
     setStep('connecting');
     const token = localStorage.getItem('nekocafe_token');
     
-    // Determine locale based on current language setting
-    // i18n.language can be 'ja', 'en', 'ja-JP', 'en-US', etc.
-    const currentLanguage = i18n.language || 'en';
-    console.log('Current i18n language:', currentLanguage);
-    
-    // Check if language starts with 'ja' (handles 'ja', 'ja-JP', 'ja_JP', etc.)
-    const locale = currentLanguage.toLowerCase().startsWith('ja') ? 'ja_JP' : 'en_US';
-    console.log('Facebook OAuth locale:', locale);
+    // Force English locale for Meta App Review
+    // TODO: After review approval, restore multi-language support
+    const locale = 'en_US';
+    console.log('Facebook OAuth locale (forced for review):', locale);
     
     // Open OAuth in popup
     const width = 600;
