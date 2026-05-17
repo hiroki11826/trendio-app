@@ -1,8 +1,8 @@
 # Deploy to EC2 Script
 $ErrorActionPreference = "Stop"
 
-$EC2_IP = "54.168.247.161"
-$KEY_PATH = "$env:USERPROFILE\snsinsight-key2.pem"
+$EC2_IP = "52.195.175.239"
+$KEY_PATH = "$env:USERPROFILE\trendio-key-20260517-205756.pem"
 $EC2_USER = "ec2-user"
 $REMOTE_DIR = "/home/ec2-user/app"
 
@@ -57,16 +57,16 @@ cd /home/ec2-user/app
 chmod +x deploy.sh
 
 # Stop existing containers
-docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker-compose --env-file .env.production -f docker-compose.prod.yml down 2>/dev/null || true
 
 # Build and start
-docker compose -f docker-compose.prod.yml up -d --build
+docker-compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 
 # Wait for services
 sleep 15
 
 echo '=== Deployment complete ==='
-docker compose -f docker-compose.prod.yml ps
+docker-compose --env-file .env.production -f docker-compose.prod.yml ps
 docker logs snsinsight-server --tail 20 2>/dev/null || echo 'Server logs not available yet'
 '@
 
