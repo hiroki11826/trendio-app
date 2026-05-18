@@ -136,10 +136,11 @@ export default function AIContent() {
       });
       if (response.ok) { 
         const data = await response.json();
+        const savedScriptData = data.contentScript || data.script;
         alert(t('aiContent.scriptSaved')); 
         // 保存後、selectedScriptを更新してisSavedをtrueにする
         if (selectedScript) {
-          setSelectedScript({ ...selectedScript, id: data.contentScript.id, ideaId: ideaId });
+          setSelectedScript({ ...selectedScript, id: savedScriptData.id, ideaId: ideaId });
         }
         await loadSavedIdeas();
         
@@ -270,9 +271,10 @@ export default function AIContent() {
       const scriptData = await scriptResponse.json();
 
       // 保存されたスクリプトを表示（id付き）
+      const savedScript = scriptData.contentScript || scriptData.script;
       setSelectedScript({
         ...generatedScript,
-        id: scriptData.contentScript.id,
+        id: savedScript.id,
         ideaId: contentIdeaId,
         title: idea.title,
         concept: idea.concept,
@@ -289,7 +291,7 @@ export default function AIContent() {
       // New Generationタブの場合、contentIdeasも更新
       if (!idea.id) {
         setContentIdeas(prev => prev.map(i => 
-          i.tempId === idea.tempId ? { ...i, id: contentIdeaId, scripts: [scriptData.contentScript] } : i
+          i.tempId === idea.tempId ? { ...i, id: contentIdeaId, scripts: [savedScript] } : i
         ));
         setSavedIdeaIds(prev => new Set([...prev, contentIdeaId]));
       }
