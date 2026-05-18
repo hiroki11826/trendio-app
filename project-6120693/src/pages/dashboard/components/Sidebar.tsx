@@ -56,9 +56,9 @@ export default function Sidebar() {
             className="h-9 w-9 object-contain"
           />
           <div className="flex flex-col">
-            <span className="text-lg font-semibold text-blue-600">Trendio</span>
+            <span className="text-xs text-gray-500">Trendio</span>
             {companyName && (
-              <span className="text-xs text-gray-500 truncate max-w-[140px]">{companyName}</span>
+              <span className="text-lg font-semibold text-gray-700 truncate max-w-[140px]">{companyName}</span>
             )}
           </div>
         </div>
