@@ -188,18 +188,25 @@ export default function AIContent() {
         return;
       }
 
+      // contextを構築（generationContextがnullの場合はideaから取得）
+      const context = generationContext || {
+        industry: idea.industry || selectedIndustry,
+        goal: idea.goal || allGoalOptions.find(g => g.id === selectedGoal)?.label || selectedGoal,
+        freeInput: idea.freeInput || '',
+      };
+
       // スクリプトを生成
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-script`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contentIdea: { title: idea.title, concept: idea.concept, format: idea.format, hook: idea.hook, structure: idea.structure, caption: idea.caption, hashtags: idea.hashtags },
-          context: generationContext,
+          context: context,
         }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 500 && errorData.message?.includes('Too Many Requests')) { alert(t('aiContent.rateLimitError')); return; }
-        throw new Error('Failed to generate script');
+        throw new Error(errorData.message || 'Failed to generate script');
       }
       const data = await response.json();
       const generatedScript = data.script;
@@ -207,6 +214,11 @@ export default function AIContent() {
       // アイデアが保存されていない場合は、まずアイデアを保存
       let contentIdeaId = idea.id;
       if (!contentIdeaId) {
+        const ideaContext = generationContext || {
+          industry: idea.industry || selectedIndustry,
+          goal: idea.goal || allGoalOptions.find(g => g.id === selectedGoal)?.label || selectedGoal,
+          freeInput: idea.freeInput || '',
+        };
         const ideaResponse = await fetch(`${API_BASE_URL}/api/content-ideas`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -218,10 +230,18 @@ export default function AIContent() {
             structure: idea.structure,
             caption: idea.caption,
             hashtags: idea.hashtags,
-            ...generationContext
+            ...ideaContext
           }),
         });
-        if (!ideaResponse.ok) throw new Error('Failed to save idea');
+        if (!ideaResponse.ok) {
+          if (ideaResponse.status === 401) {
+            localStorage.removeItem('nekocafe_token');
+            alert(t('aiContent.sessionExpired') || 'セッションが期限切れです。再ログインしてください。');
+            window.location.href = '/login';
+            return;
+          }
+          throw new Error('Failed to save idea');
+        }
         const ideaData = await ideaResponse.json();
         contentIdeaId = ideaData.contentIdea.id;
       }
