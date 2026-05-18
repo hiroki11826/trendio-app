@@ -55,11 +55,12 @@ export default function Sidebar() {
             alt="Trendio" 
             className="h-9 w-9 object-contain"
           />
-          {companyName ? (
-            <span className="text-sm font-medium text-gray-700 truncate">{companyName}</span>
-          ) : (
+          <div className="flex flex-col">
             <span className="text-lg font-semibold text-blue-600">Trendio</span>
-          )}
+            {companyName && (
+              <span className="text-xs text-gray-500 truncate max-w-[140px]">{companyName}</span>
+            )}
+          </div>
         </div>
       </div>
 
