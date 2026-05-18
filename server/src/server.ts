@@ -2080,11 +2080,15 @@ app.get("/api/user/data-summary", authenticateToken, async (req: Request, res: R
 app.put("/api/user/profile", authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.userId;
-    const { name } = req.body;
+    const { name, companyName } = req.body;
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name || null;
+    if (companyName !== undefined) updateData.name = companyName || null;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { name: name || null },
+      data: updateData,
       select: {
         id: true,
         email: true,
@@ -2092,7 +2096,7 @@ app.put("/api/user/profile", authenticateToken, async (req: Request, res: Respon
       },
     });
 
-    res.json({ success: true, user: updatedUser });
+    res.json({ success: true, user: { ...updatedUser, companyName: updatedUser.name } });
   } catch (error) {
     next(error);
   }
@@ -2117,7 +2121,7 @@ app.get("/api/user/profile", authenticateToken, async (req: Request, res: Respon
       return;
     }
 
-    res.json({ user });
+    res.json({ user: { ...user, companyName: user.name } });
   } catch (error) {
     next(error);
   }
