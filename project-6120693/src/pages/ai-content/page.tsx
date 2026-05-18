@@ -106,6 +106,10 @@ export default function AIContent() {
         setContentIdeas(prev => prev.map(i => i.tempId === idea.tempId ? { ...i, id: data.contentIdea.id } : i));
         alert(t('aiContent.ideaSaved'));
         await loadSavedIdeas();
+      } else if (response.status === 401) {
+        localStorage.removeItem('nekocafe_token');
+        alert(t('aiContent.sessionExpired') || 'セッションが期限切れです。再ログインしてください。');
+        window.location.href = '/login';
       } else { throw new Error('Failed to save'); }
     } catch (error) { console.error('Error saving idea:', error); alert(t('aiContent.saveFailed')); }
   };
