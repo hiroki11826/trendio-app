@@ -304,14 +304,13 @@ export default function Comments() {
                         <div className="mt-2 flex items-center gap-3">
                           <button 
                             onClick={() => { setReplyingTo(comment.id); setReplyText(''); }} 
-                            disabled={sentIds.has(comment.id) || (comment.replies && comment.replies.length > 0)} 
-                            className="text-xs text-emerald-600 hover:text-emerald-700 disabled:text-gray-400 flex items-center gap-1"
+                            className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
                           >
                             <i className="ri-reply-line"></i>{t('comments.reply')}
                           </button>
                           <button 
                             onClick={() => handleSuggestReply(comment)} 
-                            disabled={loadingSuggestions === comment.id || sentIds.has(comment.id) || (comment.replies && comment.replies.length > 0)} 
+                            disabled={loadingSuggestions === comment.id} 
                             className="text-xs text-purple-600 hover:text-purple-700 disabled:text-gray-400 flex items-center gap-1"
                           >
                             {loadingSuggestions === comment.id
