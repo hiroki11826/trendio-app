@@ -9,6 +9,7 @@ export default function TikTokDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState<TikTokInsightsResponse | null>(null);
   const [chartCount, setChartCount] = useState<number>(10);
+  const [videoDisplayCount, setVideoDisplayCount] = useState<number>(8);
   const [loading, setLoading] = useState(true);
   const [notConnected, setNotConnected] = useState(false);
 
@@ -174,7 +175,7 @@ export default function TikTokDetail() {
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-5">{t('tiktok.recentVideos')}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {videos.slice(0, 8).map((video, index) => (
+            {videos.slice(0, videoDisplayCount).map((video, index) => (
               <a key={video.id || index} href={video.shareUrl || '#'} target="_blank" rel="noopener noreferrer" className="group cursor-pointer block">
                 <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
                   {video.coverUrl && (
@@ -198,24 +199,19 @@ export default function TikTokDetail() {
               </a>
             ))}
           </div>
+          {videoDisplayCount < videos.length && (
+            <div className="mt-5 text-center">
+              <button
+                onClick={() => setVideoDisplayCount(prev => prev + 4)}
+                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <i className="ri-arrow-down-line mr-1"></i>
+                {t('tiktok.showMore') || 'もっと表示'}
+              </button>
+            </div>
+          )}
         </div>
       )}
-
-      <div className="bg-white rounded-xl border border-gray-100 p-6 mt-5">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">{t('tiktok.engagementRate')}</h3>
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gray-900 rounded-full"
-                style={{ width: `${Math.min(summary?.avgEngagementRate ?? 0, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-          <span className="text-2xl font-semibold text-gray-900">{summary?.avgEngagementRate?.toFixed(2) || '0.00'}%</span>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">{t('tiktok.engagementDesc')}</p>
-      </div>
     </div>
   );
 }
