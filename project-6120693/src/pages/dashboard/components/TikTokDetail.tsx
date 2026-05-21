@@ -8,6 +8,7 @@ export default function TikTokDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [data, setData] = useState<TikTokInsightsResponse | null>(null);
+  const [chartCount, setChartCount] = useState<number>(10);
   const [loading, setLoading] = useState(true);
   const [notConnected, setNotConnected] = useState(false);
 
@@ -134,25 +135,42 @@ export default function TikTokDetail() {
 
       {videos && videos.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-5">{t('tiktok.viewsAndLikes') || '再生回数・いいね数の推移'}</h3>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-gray-700">{t('tiktok.viewsAndLikes') || '再生回数・いいね数の推移'}</h3>
+            <select
+              value={chartCount}
+              onChange={(e) => setChartCount(Number(e.target.value))}
+              className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value={5}>5{t('tiktok.posts') || '件'}</option>
+              <option value={10}>10{t('tiktok.posts') || '件'}</option>
+              <option value={20}>20{t('tiktok.posts') || '件'}</option>
+              <option value={50}>50{t('tiktok.posts') || '件'}</option>
+            </select>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart
-              data={[...videos].sort((a, b) => (a.createTime || 0) - (b.createTime || 0)).map(v => ({
+              data={[...videos].sort((a, b) => (a.createTime || 0) - (b.createTime || 0)).slice(-chartCount).map(v => ({
                 name: v.createTime ? new Date(v.createTime * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : v.title?.slice(0, 8) || '?',
                 views: v.views,
                 likes: v.likes,
               }))}
-              margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+              margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
               <Tooltip formatter={(value: number) => value.toLocaleString()} />
               <Legend />
-              <Bar dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#1f2937" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="likes" name={t('tiktok.likes') || 'いいね'} fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="left" dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#1f2937" radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="right" dataKey="likes" name={t('tiktok.likes') || 'いいね'} fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          <div className="flex items-center justify-center gap-6 mt-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-900 inline-block"></span>{t('tiktok.leftAxis') || '左軸: 再生回数'}</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>{t('tiktok.rightAxis') || '右軸: いいね数'}</span>
+          </div>
         </div>
       )}
 
