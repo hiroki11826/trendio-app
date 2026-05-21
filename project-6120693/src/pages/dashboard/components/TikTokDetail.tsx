@@ -136,7 +136,7 @@ export default function TikTokDetail() {
           <h3 className="text-sm font-semibold text-gray-700 mb-5">{t('tiktok.recentVideos')}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {videos.slice(0, 8).map((video, index) => (
-              <div key={video.id || index} className="group cursor-pointer">
+              <a key={video.id || index} href={video.shareUrl || '#'} target="_blank" rel="noopener noreferrer" className="group cursor-pointer block">
                 <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-2" style={{aspectRatio: '9/16'}}>
                   {video.coverUrl && (
                     <img
@@ -156,7 +156,7 @@ export default function TikTokDetail() {
                   </div>
                 </div>
                 <p className="text-xs text-gray-600 line-clamp-2">{video.title || t('tiktok.untitled')}</p>
-              </div>
+              </a>
             ))}
           </div>
         </div>
