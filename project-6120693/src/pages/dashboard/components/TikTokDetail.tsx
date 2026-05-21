@@ -159,18 +159,14 @@ export default function TikTokDetail() {
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.views') || '再生回数', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#1f2937' } }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.likes') || 'いいね数', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#10b981' } }} />
               <Tooltip formatter={(value: number) => value.toLocaleString()} />
               <Legend />
               <Bar yAxisId="left" dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#1f2937" radius={[4, 4, 0, 0]} />
               <Bar yAxisId="right" dataKey="likes" name={t('tiktok.likes') || 'いいね'} fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex items-center justify-center gap-6 mt-3 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-900 inline-block"></span>{t('tiktok.leftAxis') || '左軸: 再生回数'}</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>{t('tiktok.rightAxis') || '右軸: いいね数'}</span>
-          </div>
         </div>
       )}
 
