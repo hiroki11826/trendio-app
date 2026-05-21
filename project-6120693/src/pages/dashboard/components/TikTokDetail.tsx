@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { api, ApiError, type TikTokInsightsResponse } from '../../../services/api';
 
 export default function TikTokDetail() {
@@ -130,6 +131,30 @@ export default function TikTokDetail() {
           </div>
         ))}
       </div>
+
+      {videos && videos.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-5">{t('tiktok.viewsAndLikes') || '再生回数・いいね数の推移'}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={[...videos].sort((a, b) => (a.createTime || 0) - (b.createTime || 0)).map(v => ({
+                name: v.createTime ? new Date(v.createTime * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : v.title?.slice(0, 8) || '?',
+                views: v.views,
+                likes: v.likes,
+              }))}
+              margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+              <Tooltip formatter={(value: number) => value.toLocaleString()} />
+              <Legend />
+              <Bar dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#1f2937" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="likes" name={t('tiktok.likes') || 'いいね'} fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {videos && videos.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-6">
