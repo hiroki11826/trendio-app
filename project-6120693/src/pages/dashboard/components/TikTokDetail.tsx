@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { api, ApiError, type TikTokInsightsResponse } from '../../../services/api';
 
 export default function TikTokDetail() {
@@ -136,7 +136,7 @@ export default function TikTokDetail() {
       {videos && videos.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-sm font-semibold text-gray-700">{t('tiktok.viewsAndLikes') || '再生回数・いいね数の推移'}</h3>
+            <h3 className="text-sm font-semibold text-gray-700">Post Analytics</h3>
             <select
               value={chartCount}
               onChange={(e) => setChartCount(Number(e.target.value))}
@@ -149,7 +149,7 @@ export default function TikTokDetail() {
             </select>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart
+            <ComposedChart
               data={[...videos].sort((a, b) => (a.createTime || 0) - (b.createTime || 0)).slice(-chartCount).map(v => ({
                 name: v.createTime ? new Date(v.createTime * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : v.title?.slice(0, 8) || '?',
                 views: v.views,
@@ -159,13 +159,13 @@ export default function TikTokDetail() {
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.views') || '再生回数', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#1f2937' } }} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.likes') || 'いいね数', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#10b981' } }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.views') || '再生回数', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#6B7280' } }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} label={{ value: t('tiktok.likes') || 'いいね数', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#93C5FD' } }} />
               <Tooltip formatter={(value: number) => value.toLocaleString()} />
               <Legend />
-              <Bar yAxisId="left" dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#1f2937" radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="right" dataKey="likes" name={t('tiktok.likes') || 'いいね'} fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Bar yAxisId="left" dataKey="views" name={t('tiktok.views') || '再生回数'} fill="#6B7280" radius={[4, 4, 0, 0]} />
+              <Line yAxisId="right" type="monotone" dataKey="likes" name={t('tiktok.likes') || 'いいね'} stroke="#93C5FD" strokeWidth={2} dot={{ fill: '#93C5FD', r: 4 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
