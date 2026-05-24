@@ -123,11 +123,18 @@ export default function Home() {
                 </div>
               </div>
               <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200">
-                <img 
-                  src="/tiktok-videos-screenshot.png" 
-                  alt="TikTok Dashboard showing account metrics (72 Followers, 17 Videos, 502 Total Likes, 842 Avg Views) and recent video thumbnails with performance statistics"
-                  className="w-full h-auto"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <img 
+                    src="/Tiktok_image_1.png" 
+                    alt="TikTok Dashboard - Account metrics and video analytics"
+                    className="w-full h-auto"
+                  />
+                  <img 
+                    src="/Tiktok_image_2.png" 
+                    alt="TikTok Dashboard - Recent videos with performance statistics"
+                    className="w-full h-auto"
+                  />
+                </div>
               </div>
             </div>
           </div>
