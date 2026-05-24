@@ -123,16 +123,16 @@ export default function Home() {
                 </div>
               </div>
               <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200">
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-6 p-4">
                   <img 
-                    src="/Tiktok_image_1.png" 
+                    src="/Tiktok_image_1.png?v=2" 
                     alt="TikTok Dashboard - Account metrics and video analytics"
-                    className="w-full h-auto"
+                    className="w-full h-auto rounded-lg"
                   />
                   <img 
                     src="/Tiktok_image_2.png" 
                     alt="TikTok Dashboard - Recent videos with performance statistics"
-                    className="w-full h-auto"
+                    className="w-full h-auto rounded-lg"
                   />
                 </div>
               </div>
