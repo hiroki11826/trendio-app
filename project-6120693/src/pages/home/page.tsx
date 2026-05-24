@@ -123,7 +123,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-2">
                   <img 
                     src="/Tiktok_image_1.png" 
                     alt="TikTok Dashboard - Account metrics and video analytics"
